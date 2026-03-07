@@ -19,9 +19,17 @@ function formatDate(dateStr: string) {
   return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`
 }
 
+const heroImages = [
+  '/images/gallery/hero-ground.jpg',
+  '/images/gallery/hero-batting-hedge.jpg',
+  '/images/gallery/hero-big-hit.jpg',
+  '/images/gallery/hero-batting-cottage.jpg',
+]
+
 export const dynamic = 'force-dynamic'
 
 export default async function Home() {
+  const heroImage = heroImages[Math.floor(Math.random() * heroImages.length)]
   const today = new Date().toISOString().split('T')[0]
   const { data: nextFixtures } = await supabase
     .from('fixtures')
@@ -47,7 +55,7 @@ export default async function Home() {
       {/* Hero with real ground photo */}
       <div className="relative h-[420px] md:h-[480px] overflow-hidden">
         <Image
-          src="/images/gallery/hero-ground.jpg"
+          src={heroImage}
           alt="Cricket at Bitchet Green"
           fill
           className="object-cover object-top"
