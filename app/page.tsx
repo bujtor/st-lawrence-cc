@@ -87,6 +87,37 @@ export default async function Home() {
         </div>
       </div>
 
+      {/* The Saints Want You - recruitment banner */}
+      <div className="relative overflow-hidden bg-gray-900">
+        <Image
+          src="/images/gallery/team-pavilion.jpg"
+          alt="St Lawrence CC team"
+          fill
+          className="object-cover opacity-30"
+        />
+        <div className="relative max-w-5xl mx-auto px-4 py-8 md:py-10 flex flex-col md:flex-row items-center gap-6 md:gap-10">
+          <div className="flex-1 text-center md:text-left">
+            <h2 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+              The Saints Want You!
+            </h2>
+            <p className="text-white/70 text-sm md:text-base mt-2 max-w-xl">
+              Interested in village cricket? We&apos;re a friendly social club founded in 1877. Cricket should be fun and enjoyed by all &mdash; new players welcome regardless of age or ability.
+            </p>
+          </div>
+          <div className="flex flex-col items-center md:items-end gap-2 flex-shrink-0">
+            <a
+              href="mailto:pmsmith31@icloud.com"
+              className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-6 py-3 rounded-lg no-underline transition-colors shadow-lg"
+            >
+              Get in Touch
+            </a>
+            <a href="tel:07783596582" className="text-white/50 hover:text-white/80 text-xs no-underline transition-colors">
+              or call 07783 596582
+            </a>
+          </div>
+        </div>
+      </div>
+
       {/* Next fixture / Last result cards */}
       <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -183,25 +214,6 @@ export default async function Home() {
             <div className="text-sm font-semibold text-gray-800 group-hover:text-emerald-700 transition-colors">About</div>
             <div className="text-xs text-gray-400 mt-1">Ground & contact</div>
           </Link>
-        </div>
-      </div>
-
-      {/* Ground photo with overlay text */}
-      <div className="relative h-64 md:h-80 overflow-hidden">
-        <Image
-          src="/images/gallery/outfield-stripes.jpg"
-          alt="Bitchet Green outfield"
-          fill
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-emerald-900/60" />
-        <div className="absolute inset-0 flex items-center justify-center text-center px-4">
-          <div>
-            <p className="text-white/90 text-lg md:text-xl font-semibold">Village cricket at its finest</p>
-            <p className="text-white/60 text-sm mt-2 max-w-md mx-auto">
-              Playing Saturday afternoon cricket in the Kent countryside since 1877
-            </p>
-          </div>
         </div>
       </div>
 
