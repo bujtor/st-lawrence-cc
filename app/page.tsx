@@ -61,18 +61,57 @@ export default async function Home() {
           className="object-cover object-top"
           priority
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10" />
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
-          <Image
-            src="/images/badge.png"
-            alt="St Lawrence Cricket Club"
-            width={320}
-            height={180}
-            className="invert w-auto max-h-28 md:max-h-36 mb-4 drop-shadow-2xl"
-            priority
-          />
-          <p className="text-white/80 text-sm md:text-base font-light tracking-wide">Bitchet Green, Ivy Hatch, Sevenoaks, Kent</p>
-          <p className="text-white/50 text-xs mt-1">Kent County Village League &middot; Est. 1877</p>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/10" />
+        <div className="absolute inset-0 flex items-center">
+          <div className="max-w-5xl mx-auto px-4 w-full flex flex-col md:flex-row items-center md:items-end md:justify-between gap-6">
+            {/* Logo + subtitle - left/center */}
+            <div className="text-center md:text-left">
+              <Image
+                src="/images/badge.png"
+                alt="St Lawrence Cricket Club"
+                width={320}
+                height={180}
+                className="invert w-auto max-h-24 md:max-h-32 mb-3 drop-shadow-2xl mx-auto md:mx-0"
+                priority
+              />
+              <p className="text-white/70 text-sm font-light tracking-wide">Bitchet Green, Ivy Hatch, Sevenoaks, Kent</p>
+              <p className="text-white/40 text-xs mt-0.5">Kent County Village League &middot; Est. 1877</p>
+            </div>
+
+            {/* Next match + last result - right side overlay */}
+            <div className="flex flex-col gap-2.5 w-full md:w-auto md:max-w-xs">
+              {nextFixture && (
+                <Link href="/fixtures" className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 no-underline hover:bg-white/15 transition-colors">
+                  <div className="text-[10px] text-emerald-400 font-semibold uppercase tracking-widest mb-1.5">Next Match</div>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-base font-bold text-white">vs {nextFixture.opponent}</div>
+                      <div className="text-xs text-white/60 mt-0.5">{formatDate(nextFixture.match_date)} &middot; {nextFixture.venue}</div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                        nextFixture.home_away === 'H' ? 'bg-emerald-500/30 text-emerald-300' : 'bg-sky-500/30 text-sky-300'
+                      }`}>
+                        {nextFixture.home_away === 'H' ? 'Home' : 'Away'}
+                      </span>
+                      <div className="text-lg font-bold text-white mt-1">{nextFixture.start_time?.slice(0, 5)}</div>
+                    </div>
+                  </div>
+                </Link>
+              )}
+              {lastResult && (
+                <div className="bg-white/10 backdrop-blur-md rounded-xl px-4 py-3 border border-white/20">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-[10px] text-white/40 font-semibold uppercase tracking-widest">Last Result</div>
+                      <div className="text-sm font-semibold text-white mt-0.5">vs {lastResult.opponent}</div>
+                    </div>
+                    <div className="text-xs font-medium text-emerald-400 text-right">{lastResult.result_text}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -123,68 +162,6 @@ export default async function Home() {
               or call 07783 596582
             </a>
           </div>
-        </div>
-      </div>
-
-      {/* Next fixture / Last result cards */}
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {nextFixture ? (
-            <Link href="/fixtures" className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow no-underline">
-              <div className="text-[10px] text-emerald-600 font-semibold uppercase tracking-widest mb-3">Next Fixture</div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-lg font-bold text-gray-900">vs {nextFixture.opponent}</div>
-                  <div className="text-sm text-gray-500 mt-0.5">{formatDate(nextFixture.match_date)}</div>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                      nextFixture.home_away === 'H' ? 'bg-emerald-50 text-emerald-700' : 'bg-sky-50 text-sky-700'
-                    }`}>
-                      {nextFixture.home_away === 'H' ? 'Home' : 'Away'}
-                    </span>
-                    <span className="text-xs text-gray-400">{nextFixture.venue}</span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-medium text-gray-500">Start</div>
-                  <div className="text-xl font-bold text-gray-900">{nextFixture.start_time?.slice(0, 5)}</div>
-                </div>
-              </div>
-            </Link>
-          ) : (
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-              <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest mb-3">Season</div>
-              <div className="text-lg font-bold text-gray-900">2026 Season</div>
-              <div className="text-sm text-gray-500 mt-0.5">18 league fixtures, May &ndash; September</div>
-            </div>
-          )}
-
-          {lastResult ? (
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-              <div className="text-[10px] text-emerald-600 font-semibold uppercase tracking-widest mb-3">Latest Result</div>
-              <div className="text-lg font-bold text-gray-900">vs {lastResult.opponent}</div>
-              <div className="text-sm text-gray-500 mt-0.5">{formatDate(lastResult.match_date)}</div>
-              <div className="mt-2 text-sm font-medium text-emerald-700">{lastResult.result_text}</div>
-            </div>
-          ) : (
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-              <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest mb-3">2024 Highlights</div>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Top run scorer</span>
-                  <span className="text-sm font-semibold text-gray-900">Greg Shea &middot; 304</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Top wicket taker</span>
-                  <span className="text-sm font-semibold text-gray-900">Paul Martin &middot; 22</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Highest score</span>
-                  <span className="text-sm font-semibold text-gray-900">A Bujtor &middot; 117</span>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
