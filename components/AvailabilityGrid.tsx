@@ -216,7 +216,7 @@ export default function AvailabilityGrid({
       {/* Header */}
       <div className="px-4 pt-4 pb-2 max-w-[1500px] mx-auto border-b border-gray-100">
         <div className="flex items-center gap-2 mb-2">
-          <Image src="/images/badge.png" alt="St Lawrence CC" width={36} height={36} className="rounded-full" />
+          <Image src="/images/badge.png" alt="St Lawrence CC" width={100} height={36} className="h-8 w-auto" />
           <div className="flex-1">
             <h1 className="text-base font-bold tracking-tight text-gray-900 m-0">
               St Lawrence CC

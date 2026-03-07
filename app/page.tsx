@@ -51,13 +51,12 @@ export default async function Home() {
         <div className="max-w-5xl mx-auto px-4 py-20 text-center">
           <Image
             src="/images/badge.png"
-            alt="St Lawrence CC badge"
-            width={96}
-            height={96}
-            className="mx-auto mb-6 drop-shadow-lg"
+            alt="St Lawrence Cricket Club"
+            width={320}
+            height={180}
+            className="mx-auto mb-6 drop-shadow-lg invert w-auto max-h-36"
             priority
           />
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">St Lawrence Cricket Club</h1>
           <p className="text-emerald-200 text-base md:text-lg font-light">Bitchet Green, Ivy Hatch, Sevenoaks, Kent</p>
           <p className="text-emerald-300/80 text-sm mt-1">Kent County Village League &middot; Est. 1879</p>
         </div>
@@ -174,7 +173,7 @@ export default async function Home() {
         <div className="max-w-5xl mx-auto px-4 py-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <Image src="/images/badge.png" alt="St Lawrence CC" width={28} height={28} className="rounded-full opacity-60" />
+              <Image src="/images/badge.png" alt="St Lawrence CC" width={80} height={28} className="h-5 w-auto opacity-40" />
               <div className="text-xs text-gray-400">
                 St Lawrence Cricket Club &middot; Bitchet Green, Ivy Hatch, TN15 0NB
               </div>

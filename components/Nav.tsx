@@ -26,15 +26,12 @@ export default function Nav() {
         <Link href="/" className="flex items-center gap-3 no-underline">
           <Image
             src="/images/badge.png"
-            alt="St Lawrence CC"
-            width={40}
-            height={40}
-            className="rounded-full"
+            alt="St Lawrence Cricket Club"
+            width={140}
+            height={48}
+            className="h-10 w-auto"
+            priority
           />
-          <div>
-            <div className="text-sm font-bold text-gray-900 leading-tight">St Lawrence CC</div>
-            <div className="text-[10px] text-gray-400 font-medium leading-tight">Bitchet Green, Sevenoaks</div>
-          </div>
         </Link>
 
         <div className="hidden md:flex items-center gap-1">
