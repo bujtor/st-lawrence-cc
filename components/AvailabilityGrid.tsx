@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import Image from 'next/image'
 import type { Player, Fixture, Availability } from '@/lib/supabase'
 import MatchDetail from './MatchDetail'
 import AddRinginModal from './AddRinginModal'
@@ -215,11 +216,12 @@ export default function AvailabilityGrid({
       {/* Header */}
       <div className="px-4 pt-4 pb-2 max-w-[1500px] mx-auto border-b border-gray-100">
         <div className="flex items-center gap-2 mb-2">
+          <Image src="/images/badge.png" alt="St Lawrence CC" width={36} height={36} className="rounded-full" />
           <div className="flex-1">
-            <h1 className="text-lg font-extrabold tracking-tight text-gray-900 m-0">
-              2026 Season
+            <h1 className="text-base font-bold tracking-tight text-gray-900 m-0">
+              St Lawrence CC
             </h1>
-            <div className="text-[11px] text-gray-400 font-medium">1st XI Availability</div>
+            <div className="text-[11px] text-gray-400 font-medium">2026 &middot; 1st XI Availability</div>
           </div>
           <PlayerSearch
             allPlayers={allPlayers}
