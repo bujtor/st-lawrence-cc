@@ -68,11 +68,30 @@ export default async function Home() {
         </div>
       </div>
 
+      {/* Sponsors - just below hero */}
+      <div className="bg-white border-b border-gray-100">
+        <div className="max-w-5xl mx-auto px-4 py-5">
+          <div className="flex flex-wrap justify-center items-center gap-6 md:gap-10">
+            {sponsors.map((s) => (
+              <div key={s.name} className="grayscale hover:grayscale-0 opacity-50 hover:opacity-100 transition-all">
+                <Image
+                  src={`/images/sponsors/${s.file}`}
+                  alt={s.name}
+                  width={100}
+                  height={50}
+                  className="object-contain max-h-[32px] w-auto"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Next fixture / Last result cards */}
-      <div className="max-w-5xl mx-auto px-4 -mt-12 relative z-10">
+      <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {nextFixture ? (
-            <Link href="/fixtures" className="bg-white rounded-xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-shadow no-underline">
+            <Link href="/fixtures" className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow no-underline">
               <div className="text-[10px] text-emerald-600 font-semibold uppercase tracking-widest mb-3">Next Fixture</div>
               <div className="flex items-center justify-between">
                 <div>
@@ -94,7 +113,7 @@ export default async function Home() {
               </div>
             </Link>
           ) : (
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-lg">
+            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
               <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest mb-3">Season</div>
               <div className="text-lg font-bold text-gray-900">2026 Season</div>
               <div className="text-sm text-gray-500 mt-0.5">18 league fixtures, May &ndash; September</div>
@@ -102,14 +121,14 @@ export default async function Home() {
           )}
 
           {lastResult ? (
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-lg">
+            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
               <div className="text-[10px] text-emerald-600 font-semibold uppercase tracking-widest mb-3">Latest Result</div>
               <div className="text-lg font-bold text-gray-900">vs {lastResult.opponent}</div>
               <div className="text-sm text-gray-500 mt-0.5">{formatDate(lastResult.match_date)}</div>
               <div className="mt-2 text-sm font-medium text-emerald-700">{lastResult.result_text}</div>
             </div>
           ) : (
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-lg">
+            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
               <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest mb-3">2024 Highlights</div>
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
@@ -182,26 +201,6 @@ export default async function Home() {
             <p className="text-white/60 text-sm mt-2 max-w-md mx-auto">
               Playing Saturday afternoon cricket in the Kent countryside since 1877
             </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Sponsors */}
-      <div className="bg-gray-50 border-t border-gray-100">
-        <div className="max-w-5xl mx-auto px-4 py-10">
-          <h3 className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest text-center mb-6">Proudly Supported By</h3>
-          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12">
-            {sponsors.map((s) => (
-              <div key={s.name} className="grayscale hover:grayscale-0 opacity-60 hover:opacity-100 transition-all">
-                <Image
-                  src={`/images/sponsors/${s.file}`}
-                  alt={s.name}
-                  width={100}
-                  height={50}
-                  className="object-contain max-h-[40px] w-auto"
-                />
-              </div>
-            ))}
           </div>
         </div>
       </div>
