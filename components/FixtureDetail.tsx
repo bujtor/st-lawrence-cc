@@ -84,6 +84,20 @@ export default function FixtureDetail({
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
             <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1.5">Ground</div>
             <div className="text-sm font-semibold text-gray-800">{fixture.venue}</div>
+            {fixture.lat && fixture.lng && (
+              <div className="mt-3 rounded-lg overflow-hidden border border-gray-200">
+                <iframe
+                  src={`https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d2000!2d${fixture.lng}!3d${fixture.lat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2suk!4v1`}
+                  width="100%"
+                  height="200"
+                  style={{ border: 0 }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title={`Map of ${fixture.venue}`}
+                />
+              </div>
+            )}
             {mapsUrl && (
               <a
                 href={mapsUrl}
@@ -95,7 +109,7 @@ export default function FixtureDetail({
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                Open in Google Maps
+                Get Directions
               </a>
             )}
           </div>
