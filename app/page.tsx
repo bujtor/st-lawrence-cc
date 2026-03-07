@@ -50,7 +50,7 @@ export default async function Home() {
           src="/images/gallery/hero-ground.jpg"
           alt="Cricket at Bitchet Green"
           fill
-          className="object-cover"
+          className="object-cover object-[center_35%]"
           priority
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10" />
