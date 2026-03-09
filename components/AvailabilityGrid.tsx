@@ -157,6 +157,7 @@ export default function AvailabilityGrid({
   const [showAddRingin, setShowAddRingin] = useState(false)
   const [hoveredPlayer, setHoveredPlayer] = useState<number | null>(null)
   const [newRingins, setNewRingins] = useState<Player[]>([])
+  const [roleOverrides, setRoleOverrides] = useState<Record<number, string>>({})
 
   // Active players = those in the squad who have set availability + any new ring-ins
   const activePlayers = [
@@ -242,8 +243,6 @@ export default function AvailabilityGrid({
       console.error('Failed to add ring-in:', err)
     }
   }, [])
-
-  const [roleOverrides, setRoleOverrides] = useState<Record<number, string>>({})
 
   const changeRole = useCallback(async (playerId: number, role: string) => {
     setRoleOverrides((prev) => ({ ...prev, [playerId]: role }))
