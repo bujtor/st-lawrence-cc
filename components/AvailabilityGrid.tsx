@@ -25,6 +25,8 @@ const ROLE_COLOURS: Record<string, string> = {
   WK: 'text-teal-700 border-teal-200 bg-teal-50',
 }
 
+const ROLES = ['BAT', 'BOWL', 'AR', 'WK'] as const
+
 function formatDate(dateStr: string) {
   const d = new Date(dateStr + 'T00:00:00')
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -38,6 +40,7 @@ function PlayerRow({
   hoveredPlayer,
   setHoveredPlayer,
   onCellClick,
+  onRoleChange,
 }: {
   player: Player
   fixtures: Fixture[]
@@ -45,8 +48,15 @@ function PlayerRow({
   hoveredPlayer: number | null
   setHoveredPlayer: (id: number | null) => void
   onCellClick: (playerId: number, fixtureId: number, e: React.MouseEvent) => void
+  onRoleChange: (playerId: number, role: string) => void
 }) {
   const isHovered = hoveredPlayer === player.id
+
+  const cycleRole = () => {
+    const idx = ROLES.indexOf(player.role as typeof ROLES[number])
+    const next = ROLES[(idx + 1) % ROLES.length]
+    onRoleChange(player.id, next)
+  }
 
   return (
     <tr
@@ -60,13 +70,15 @@ function PlayerRow({
         }`}
       >
         <div className="flex items-center gap-2">
-          <div
-            className={`w-7 h-5 rounded flex items-center justify-center text-[9px] font-bold font-mono border ${
+          <button
+            onClick={cycleRole}
+            title="Click to change role"
+            className={`w-7 h-5 rounded flex items-center justify-center text-[9px] font-bold font-mono border cursor-pointer hover:opacity-70 transition-opacity ${
               player.is_ringin ? 'border-dashed' : ''
             } ${ROLE_COLOURS[player.role]}`}
           >
             {player.role}
-          </div>
+          </button>
           <div className={`text-[13px] font-medium ${player.is_ringin ? 'text-gray-500' : 'text-gray-800'}`}>
             {player.name.split(' ')[0]}{' '}
             <span className="text-gray-400 font-normal">{player.name.split(' ').slice(1).join(' ')}</span>
@@ -131,7 +143,7 @@ export default function AvailabilityGrid({
     return map
   }
 
-  const [fixtures] = useState<Fixture[]>(initialFixtures)
+  const [fixtures, setFixtures] = useState<Fixture[]>(initialFixtures)
   const [avMap, setAvMap] = useState<AvailabilityMap>(buildAvMap(initialAvailability))
   const [selMap, setSelMap] = useState<SelectionMap>(buildSelMap(initialAvailability))
   const [activatedPlayerIds, setActivatedPlayerIds] = useState<Set<number>>(() => {
@@ -150,7 +162,7 @@ export default function AvailabilityGrid({
   const activePlayers = [
     ...allPlayers.filter((p) => activatedPlayerIds.has(p.id)),
     ...newRingins,
-  ]
+  ].map((p) => (roleOverrides[p.id] ? { ...p, role: roleOverrides[p.id] as Player['role'] } : p))
 
   const onCellClick = (playerId: number, fixtureId: number, e: React.MouseEvent) => {
     const r = e.currentTarget.getBoundingClientRect()
@@ -229,6 +241,30 @@ export default function AvailabilityGrid({
     } catch (err) {
       console.error('Failed to add ring-in:', err)
     }
+  }, [])
+
+  const [roleOverrides, setRoleOverrides] = useState<Record<number, string>>({})
+
+  const changeRole = useCallback(async (playerId: number, role: string) => {
+    setRoleOverrides((prev) => ({ ...prev, [playerId]: role }))
+
+    try {
+      await fetch('/api/players', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: playerId, role }),
+      })
+    } catch (err) {
+      console.error('Failed to change role:', err)
+    }
+  }, [])
+
+  const updateFixture = useCallback((fixtureId: number, updates: Partial<Fixture>) => {
+    setFixtures((prev) =>
+      prev.map((f) => (f.id === fixtureId ? { ...f, ...updates } : f))
+    )
+    // Also update selectedFixture if it's the one being edited
+    setSelectedFixture((prev) => (prev && prev.id === fixtureId ? { ...prev, ...updates } : prev))
   }, [])
 
   const promotePlayer = useCallback(async (playerId: number, demote = false) => {
@@ -337,6 +373,13 @@ export default function AvailabilityGrid({
                       <div className={`text-[9px] font-bold ${f.home_away === 'H' ? 'text-emerald-600' : 'text-sky-600'}`}>
                         {f.home_away}
                       </div>
+                      {(f.meet_time || f.start_time) && (
+                        <div className="text-[8px] text-gray-400 leading-tight mt-px">
+                          {f.meet_time ? f.meet_time.slice(0, 5) : ''}
+                          {f.meet_time && f.start_time ? '/' : ''}
+                          {f.start_time ? f.start_time.slice(0, 5) : ''}
+                        </div>
+                      )}
                       <div
                         className={`mt-0.5 text-[10px] font-extrabold font-mono rounded px-1 ${
                           tot < 11 ? 'text-red-500 bg-red-50' : 'text-emerald-700 bg-emerald-50'
@@ -360,6 +403,7 @@ export default function AvailabilityGrid({
                   hoveredPlayer={hoveredPlayer}
                   setHoveredPlayer={setHoveredPlayer}
                   onCellClick={onCellClick}
+                  onRoleChange={changeRole}
                 />
               ))}
 
@@ -383,6 +427,7 @@ export default function AvailabilityGrid({
                   hoveredPlayer={hoveredPlayer}
                   setHoveredPlayer={setHoveredPlayer}
                   onCellClick={onCellClick}
+                  onRoleChange={changeRole}
                 />
               ))}
             </tbody>
@@ -439,6 +484,7 @@ export default function AvailabilityGrid({
           onClose={() => setSelectedFixture(null)}
           onPromote={promotePlayer}
           onToggleSelection={toggleSelection}
+          onUpdateFixture={updateFixture}
         />
       )}
       {showAddRingin && <AddRinginModal onAdd={addRingin} onClose={() => setShowAddRingin(false)} />}

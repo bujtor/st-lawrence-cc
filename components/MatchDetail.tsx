@@ -31,6 +31,7 @@ export default function MatchDetail({
   onClose,
   onPromote,
   onToggleSelection,
+  onUpdateFixture,
 }: {
   fixture: Fixture
   avMap: AvailabilityMap
@@ -39,9 +40,31 @@ export default function MatchDetail({
   onClose: () => void
   onPromote: (playerId: number, demote?: boolean) => void
   onToggleSelection: (playerId: number, fixtureId: number) => void
+  onUpdateFixture?: (fixtureId: number, updates: Partial<Fixture>) => void
 }) {
   const [copied, setCopied] = useState(false)
   const [selectingXI, setSelectingXI] = useState(false)
+  const [editingTimes, setEditingTimes] = useState(false)
+  const [meetTime, setMeetTime] = useState(fixture.meet_time?.slice(0, 5) || '')
+  const [startTime, setStartTime] = useState(fixture.start_time?.slice(0, 5) || '')
+
+  const saveTimes = async () => {
+    setEditingTimes(false)
+    const updates: Partial<Fixture> = {
+      meet_time: meetTime || null,
+      start_time: startTime || null,
+    }
+    onUpdateFixture?.(fixture.id, updates)
+    try {
+      await fetch('/api/fixtures', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: fixture.id, meet_time: meetTime || null, start_time: startTime || null }),
+      })
+    } catch (err) {
+      console.error('Failed to save times:', err)
+    }
+  }
 
   const yes = players.filter((p) => avMap[p.id]?.[fixture.id] === 'available')
   const maybe = players.filter((p) => avMap[p.id]?.[fixture.id] === 'tentative')
@@ -66,7 +89,7 @@ export default function MatchDetail({
     const lines = [
       `\uD83C\uDFCF *St Lawrence CC vs ${fixture.opponent}*`,
       `\uD83D\uDCC5 ${formatMatchDate(fixture.match_date)}`,
-      `\u23F0 Meet ${formatTime(fixture.meet_time)} \u00B7 Start ${formatTime(fixture.start_time)}`,
+      `\u23F0 Meet ${meetTime || '--:--'} \u00B7 Start ${startTime || '--:--'}`,
       `\uD83D\uDCCD ${fixture.venue} (${fixture.home_away === 'H' ? 'Home' : 'Away'})`,
     ]
     if (mapsUrl) lines.push(`\uD83D\uDDFA\uFE0F ${mapsUrl}`)
@@ -129,10 +152,35 @@ export default function MatchDetail({
         </div>
 
         <div className="flex gap-2 mb-3 flex-wrap">
-          <div className="bg-gray-50 rounded-lg px-3 py-1.5 text-xs text-gray-500 flex items-center gap-1.5 border border-gray-100">
-            {'\u23F0'} Meet <strong className="text-gray-800">{formatTime(fixture.meet_time)}</strong> &middot; Start{' '}
-            <strong className="text-gray-800">{formatTime(fixture.start_time)}</strong>
-          </div>
+          {editingTimes ? (
+            <div className="bg-gray-50 rounded-lg px-3 py-1.5 text-xs text-gray-500 flex items-center gap-1.5 border border-gray-100">
+              {'\u23F0'} Meet{' '}
+              <input
+                type="time"
+                value={meetTime}
+                onChange={(e) => setMeetTime(e.target.value)}
+                className="border border-gray-300 rounded px-1.5 py-0.5 text-xs text-gray-800 font-bold w-20"
+              />
+              Start{' '}
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="border border-gray-300 rounded px-1.5 py-0.5 text-xs text-gray-800 font-bold w-20"
+              />
+              <button onClick={saveTimes} className="text-emerald-600 font-bold hover:text-emerald-800 ml-1">{'\u2713'}</button>
+              <button onClick={() => setEditingTimes(false)} className="text-gray-400 font-bold hover:text-gray-600">{'\u2717'}</button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setEditingTimes(true)}
+              className="bg-gray-50 rounded-lg px-3 py-1.5 text-xs text-gray-500 flex items-center gap-1.5 border border-gray-100 hover:bg-gray-100 transition-colors cursor-pointer"
+            >
+              {'\u23F0'} Meet <strong className="text-gray-800">{meetTime || '--:--'}</strong> &middot; Start{' '}
+              <strong className="text-gray-800">{startTime || '--:--'}</strong>
+              <span className="text-gray-300 text-[10px] ml-1">{'\u270E'}</span>
+            </button>
+          )}
           {mapsUrl && (
             <a
               href={mapsUrl}
