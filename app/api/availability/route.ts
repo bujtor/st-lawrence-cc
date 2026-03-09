@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
       player_id,
       fixture_id,
       status,
+      selected,
       notes,
       updated_at,
       fixtures!inner(season)
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
 // POST /api/availability — upsert a single availability record
 export async function POST(request: NextRequest) {
   const body = await request.json()
-  const { player_id, fixture_id, status } = body
+  const { player_id, fixture_id, status, selected } = body
 
   if (!player_id || !fixture_id || !status) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -47,17 +48,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ deleted: true })
   }
 
+  const upsertData: Record<string, unknown> = {
+    player_id,
+    fixture_id,
+    status,
+    updated_at: new Date().toISOString(),
+  }
+  if (typeof selected === 'boolean') {
+    upsertData.selected = selected
+  }
+
   const { data, error } = await supabase
     .from('availability')
-    .upsert(
-      {
-        player_id,
-        fixture_id,
-        status,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'player_id,fixture_id' }
-    )
+    .upsert(upsertData, { onConflict: 'player_id,fixture_id' })
     .select()
     .single()
 

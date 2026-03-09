@@ -9,6 +9,7 @@ import StatusPicker from './StatusPicker'
 import PlayerSearch from './PlayerSearch'
 
 type AvailabilityMap = Record<number, Record<number, string>>
+type SelectionMap = Record<number, Record<number, boolean>>
 
 const STATUS_STYLES: Record<string, { bg: string; bd: string; tx: string; sy: string }> = {
   none: { bg: 'bg-gray-50', bd: 'border-gray-200', tx: 'text-gray-300', sy: '' },
@@ -119,8 +120,20 @@ export default function AvailabilityGrid({
     return map
   }
 
+  const buildSelMap = (avList: Availability[]): SelectionMap => {
+    const map: SelectionMap = {}
+    avList.forEach((a) => {
+      if (a.selected) {
+        if (!map[a.player_id]) map[a.player_id] = {}
+        map[a.player_id][a.fixture_id] = true
+      }
+    })
+    return map
+  }
+
   const [fixtures] = useState<Fixture[]>(initialFixtures)
   const [avMap, setAvMap] = useState<AvailabilityMap>(buildAvMap(initialAvailability))
+  const [selMap, setSelMap] = useState<SelectionMap>(buildSelMap(initialAvailability))
   const [activatedPlayerIds, setActivatedPlayerIds] = useState<Set<number>>(() => {
     // Players who have any availability record are automatically active
     const ids = new Set<number>()
@@ -172,6 +185,31 @@ export default function AvailabilityGrid({
       console.error('Failed to save availability:', err)
     }
   }
+
+  const toggleSelection = useCallback(async (playerId: number, fixtureId: number) => {
+    const current = selMap[playerId]?.[fixtureId] || false
+    const newVal = !current
+
+    setSelMap((prev) => ({
+      ...prev,
+      [playerId]: { ...prev[playerId], [fixtureId]: newVal },
+    }))
+
+    try {
+      await fetch('/api/availability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          player_id: playerId,
+          fixture_id: fixtureId,
+          status: avMap[playerId]?.[fixtureId] || 'available',
+          selected: newVal,
+        }),
+      })
+    } catch (err) {
+      console.error('Failed to save selection:', err)
+    }
+  }, [selMap, avMap])
 
   const onActivatePlayer = (player: Player) => {
     setActivatedPlayerIds((prev) => new Set([...prev, player.id]))
@@ -396,9 +434,11 @@ export default function AvailabilityGrid({
         <MatchDetail
           fixture={selectedFixture}
           avMap={avMap}
+          selMap={selMap}
           players={activePlayers}
           onClose={() => setSelectedFixture(null)}
           onPromote={promotePlayer}
+          onToggleSelection={toggleSelection}
         />
       )}
       {showAddRingin && <AddRinginModal onAdd={addRingin} onClose={() => setShowAddRingin(false)} />}

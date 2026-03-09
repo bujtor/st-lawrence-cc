@@ -46,6 +46,7 @@ export type Availability = {
   player_id: number
   fixture_id: number
   status: 'available' | 'unavailable' | 'tentative'
+  selected: boolean
   notes: string | null
   updated_at: string
 }

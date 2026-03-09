@@ -34,6 +34,7 @@ create table if not exists availability (
   player_id integer references players(id) on delete cascade,
   fixture_id integer references fixtures(id) on delete cascade,
   status text check (status in ('available','unavailable','tentative')) not null,
+  selected boolean default false,
   notes text,
   updated_at timestamptz default now(),
   primary key (player_id, fixture_id)
