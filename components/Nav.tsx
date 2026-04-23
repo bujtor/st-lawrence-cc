@@ -18,7 +18,8 @@ export default function Nav() {
   const [open, setOpen] = useState(false)
 
   // Hide nav on the availability page (it's an internal tool, not public)
-  if (pathname === '/availability') return null
+  // Also hide on /candidates/* — each candidate renders its own design-specific nav
+  if (pathname === '/availability' || pathname.startsWith('/candidates')) return null
 
   return (
     <nav className="bg-white border-b border-gray-100 sticky top-0 z-40">
