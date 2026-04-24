@@ -74,6 +74,7 @@ export default async function PlayerPage({
     number,
     {
       match_date: string
+      fixture_id: number | null
       home_club_name: string
       away_club_name: string
       our_team_id: string
@@ -88,20 +89,25 @@ export default async function PlayerPage({
       .select('match_id, home_club_name, away_club_name, our_team_id, home_team_id, away_team_id')
       .in('match_id', allMatchIds)
 
-    // match_date lives on fixtures, not scorecards — look it up there
+    // match_date + fixture_id live on fixtures — look them up there
     const { data: fixRows } = await supabase
       .from('fixtures')
-      .select('play_cricket_match_id, match_date')
+      .select('id, play_cricket_match_id, match_date')
       .in('play_cricket_match_id', allMatchIds)
 
     const fixDateMap = new Map<number, string>()
+    const fixIdMap = new Map<number, number>()
     for (const f of fixRows ?? []) {
-      if (f.play_cricket_match_id) fixDateMap.set(f.play_cricket_match_id, f.match_date)
+      if (f.play_cricket_match_id) {
+        fixDateMap.set(f.play_cricket_match_id, f.match_date)
+        fixIdMap.set(f.play_cricket_match_id, f.id)
+      }
     }
 
     for (const sc of scsFixed ?? []) {
       scorecardMap.set(sc.match_id, {
         match_date: fixDateMap.get(sc.match_id) ?? '',
+        fixture_id: fixIdMap.get(sc.match_id) ?? null,
         home_club_name: sc.home_club_name ?? '',
         away_club_name: sc.away_club_name ?? '',
         our_team_id: sc.our_team_id ?? '',
@@ -121,14 +127,18 @@ export default async function PlayerPage({
     return scorecardMap.get(matchId)?.match_date ?? ''
   }
 
-  // Aggregate by season - batting
-  type SeasonBat = { inns: number; notOut: number; runs: number; hs: number; fifties: number; hundreds: number }
+  // Aggregate by season - batting (plus per-season innings list for expansion)
+  type BatRow = { match_id: number; runs: number | null; balls: number | null; how_out: string | null; bowler_name: string | null }
+  type SeasonBat = {
+    inns: number; notOut: number; runs: number; hs: number; fifties: number; hundreds: number
+    rows: BatRow[]
+  }
   const batBySeason = new Map<number, SeasonBat>()
   let careerRuns = 0, careerInns = 0, careerNO = 0, careerHS = 0, career50s = 0, career100s = 0
 
   for (const row of battingAll ?? []) {
     const s = row.season
-    if (!batBySeason.has(s)) batBySeason.set(s, { inns: 0, notOut: 0, runs: 0, hs: 0, fifties: 0, hundreds: 0 })
+    if (!batBySeason.has(s)) batBySeason.set(s, { inns: 0, notOut: 0, runs: 0, hs: 0, fifties: 0, hundreds: 0, rows: [] })
     const agg = batBySeason.get(s)!
     agg.inns++
     careerInns++
@@ -141,17 +151,28 @@ export default async function PlayerPage({
     else if (r >= 50) { agg.fifties++; career50s++ }
     const ho = (row.how_out ?? '').toLowerCase()
     if (ho === 'not out' || ho === '') { agg.notOut++; careerNO++ }
+    agg.rows.push({
+      match_id: row.match_id,
+      runs: row.runs,
+      balls: row.balls,
+      how_out: row.how_out,
+      bowler_name: row.bowler_name,
+    })
   }
 
-  // Aggregate by season - bowling
-  type SeasonBowl = { overs: number; runs: number; wickets: number; bestWkts: number; bestRuns: number; fiveWs: number }
+  // Aggregate by season - bowling (plus per-season rows)
+  type BowlRow = { match_id: number; overs: number | null; maidens: number | null; runs: number | null; wickets: number | null }
+  type SeasonBowl = {
+    overs: number; runs: number; wickets: number; bestWkts: number; bestRuns: number; fiveWs: number
+    rows: BowlRow[]
+  }
   const bowlBySeason = new Map<number, SeasonBowl>()
   let careerWkts = 0, careerBowlRuns = 0, careerOvers = 0
   let careerBestWkts = 0, careerBestRuns = 999
 
   for (const row of bowlingAll ?? []) {
     const s = row.season
-    if (!bowlBySeason.has(s)) bowlBySeason.set(s, { overs: 0, runs: 0, wickets: 0, bestWkts: 0, bestRuns: 999, fiveWs: 0 })
+    if (!bowlBySeason.has(s)) bowlBySeason.set(s, { overs: 0, runs: 0, wickets: 0, bestWkts: 0, bestRuns: 999, fiveWs: 0, rows: [] })
     const agg = bowlBySeason.get(s)!
     agg.overs += row.overs ?? 0
     agg.runs += row.runs ?? 0
@@ -164,6 +185,13 @@ export default async function PlayerPage({
     careerBowlRuns += r
     careerWkts += w
     if (w > careerBestWkts || (w === careerBestWkts && r < careerBestRuns)) { careerBestWkts = w; careerBestRuns = r }
+    agg.rows.push({
+      match_id: row.match_id,
+      overs: row.overs,
+      maidens: row.maidens,
+      runs: row.runs,
+      wickets: row.wickets,
+    })
   }
 
   // Catches / stumpings / run-outs for career header
@@ -193,6 +221,10 @@ export default async function PlayerPage({
 
   const batSeasons = Array.from(batBySeason.keys()).sort((a, b) => b - a)
   const bowlSeasons = Array.from(bowlBySeason.keys()).sort((a, b) => b - a)
+
+  function getFixtureId(matchId: number): number | null {
+    return scorecardMap.get(matchId)?.fixture_id ?? null
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -238,80 +270,172 @@ export default async function PlayerPage({
         </div>
       </div>
 
-      {/* Batting season breakdown */}
+      {/* Batting season breakdown — click a season to expand innings */}
       {batSeasons.length > 0 && (
         <section className="mb-10">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Batting by Season</h2>
-          <div className="overflow-x-auto rounded-xl border border-gray-100">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
-                  <th className="px-3 py-2 text-left">Season</th>
-                  <th className="px-3 py-2 text-right">Inn</th>
-                  <th className="px-3 py-2 text-right">NO</th>
-                  <th className="px-3 py-2 text-right">Runs</th>
-                  <th className="px-3 py-2 text-right">HS</th>
-                  <th className="px-3 py-2 text-right">Avg</th>
-                  <th className="px-3 py-2 text-right">50/100</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {batSeasons.map(s => {
-                  const a = batBySeason.get(s)!
-                  return (
-                    <tr key={s} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-3 py-2.5 font-semibold text-gray-800">{s}</td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">{a.inns}</td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">{a.notOut}</td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{a.runs}</td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">{a.hs}</td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">{fmtAvg(a.runs, a.inns, a.notOut)}</td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">{a.fifties}/{a.hundreds}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">
+            Batting by Season
+            <span className="text-gray-300 font-normal normal-case tracking-normal ml-2">
+              · click a season to see every innings
+            </span>
+          </h2>
+          <div className="rounded-xl border border-gray-100 overflow-hidden">
+            {/* Header row */}
+            <div className="bg-gray-50 text-[10px] text-gray-400 font-semibold uppercase tracking-wider grid grid-cols-[1fr_40px_36px_56px_36px_56px_60px] gap-2 px-3 py-2">
+              <div>Season</div>
+              <div className="text-right">Inn</div>
+              <div className="text-right">NO</div>
+              <div className="text-right">Runs</div>
+              <div className="text-right">HS</div>
+              <div className="text-right">Avg</div>
+              <div className="text-right">50/100</div>
+            </div>
+            {batSeasons.map((s) => {
+              const a = batBySeason.get(s)!
+              return (
+                <details key={s} className="group border-t border-gray-50 first:border-t-0">
+                  <summary
+                    className="grid grid-cols-[1fr_40px_36px_56px_36px_56px_60px] gap-2 px-3 py-2.5 items-center text-sm cursor-pointer hover:bg-gray-50 transition-colors list-none"
+                    style={{ listStyle: 'none' }}
+                  >
+                    <div className="font-semibold text-gray-800 flex items-center gap-2">
+                      <span className="text-gray-300 group-open:rotate-90 transition-transform inline-block w-3">▸</span>
+                      {s}
+                    </div>
+                    <div className="text-right text-gray-600">{a.inns}</div>
+                    <div className="text-right text-gray-600">{a.notOut}</div>
+                    <div className="text-right font-semibold text-gray-900">{a.runs}</div>
+                    <div className="text-right text-gray-600">{a.hs}</div>
+                    <div className="text-right text-gray-600">{fmtAvg(a.runs, a.inns, a.notOut)}</div>
+                    <div className="text-right text-gray-600">{a.fifties}/{a.hundreds}</div>
+                  </summary>
+                  {/* Expanded: each innings, chronological, linking to fixture */}
+                  <div className="bg-gray-50/40 border-t border-gray-100 px-1 py-1">
+                    {a.rows
+                      .slice()
+                      .sort((x, y) => (getMatchDate(y.match_id) || '').localeCompare(getMatchDate(x.match_id) || ''))
+                      .map((row, i) => {
+                        const fid = getFixtureId(row.match_id)
+                        const isNotOut =
+                          !row.how_out || (row.how_out ?? '').toLowerCase() === 'not out'
+                        const content = (
+                          <>
+                            <div className="text-xs text-gray-400 min-w-[72px]">
+                              {getMatchDate(row.match_id) ? fmtDate(getMatchDate(row.match_id)) : '−'}
+                            </div>
+                            <div className="flex-1 text-sm text-gray-700 truncate">vs {getOpponent(row.match_id)}</div>
+                            <div className="text-sm font-semibold text-gray-900 min-w-[30px] text-right">
+                              {row.runs ?? '−'}
+                              {isNotOut && row.runs != null && <span className="ml-0.5 text-[10px] text-emerald-600">*</span>}
+                            </div>
+                            <div className="text-xs text-gray-400 truncate max-w-[140px] text-right">
+                              {isNotOut ? (
+                                <span className="text-emerald-600">not out</span>
+                              ) : (
+                                <>b {row.bowler_name ?? '−'}</>
+                              )}
+                            </div>
+                          </>
+                        )
+                        return fid ? (
+                          <Link
+                            key={i}
+                            href={`/fixtures/${fid}`}
+                            className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-white no-underline text-inherit"
+                          >
+                            {content}
+                          </Link>
+                        ) : (
+                          <div key={i} className="flex items-center justify-between gap-3 px-3 py-2">
+                            {content}
+                          </div>
+                        )
+                      })}
+                  </div>
+                </details>
+              )
+            })}
           </div>
         </section>
       )}
 
-      {/* Bowling season breakdown */}
+      {/* Bowling season breakdown — click a season to expand figures */}
       {bowlSeasons.length > 0 && (
         <section className="mb-10">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Bowling by Season</h2>
-          <div className="overflow-x-auto rounded-xl border border-gray-100">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
-                  <th className="px-3 py-2 text-left">Season</th>
-                  <th className="px-3 py-2 text-right">O</th>
-                  <th className="px-3 py-2 text-right">R</th>
-                  <th className="px-3 py-2 text-right">W</th>
-                  <th className="px-3 py-2 text-right">Best</th>
-                  <th className="px-3 py-2 text-right">Avg</th>
-                  <th className="px-3 py-2 text-right">Econ</th>
-                  <th className="px-3 py-2 text-right">5W</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {bowlSeasons.map(s => {
-                  const a = bowlBySeason.get(s)!
-                  return (
-                    <tr key={s} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-3 py-2.5 font-semibold text-gray-800">{s}</td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">{formatOvers(a.overs)}</td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">{a.runs}</td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{a.wickets}</td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">{a.bestWkts}/{a.bestRuns === 999 ? 0 : a.bestRuns}</td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">{fmtBowlAvg(a.runs, a.wickets)}</td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">{fmtEcon(a.runs, a.overs)}</td>
-                      <td className="px-3 py-2.5 text-right text-gray-600">{a.fiveWs}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">
+            Bowling by Season
+            <span className="text-gray-300 font-normal normal-case tracking-normal ml-2">
+              · click a season to see every spell
+            </span>
+          </h2>
+          <div className="rounded-xl border border-gray-100 overflow-hidden">
+            {/* Header row */}
+            <div className="bg-gray-50 text-[10px] text-gray-400 font-semibold uppercase tracking-wider grid grid-cols-[1fr_48px_44px_40px_56px_48px_48px_36px] gap-2 px-3 py-2">
+              <div>Season</div>
+              <div className="text-right">O</div>
+              <div className="text-right">R</div>
+              <div className="text-right">W</div>
+              <div className="text-right">Best</div>
+              <div className="text-right">Avg</div>
+              <div className="text-right">Econ</div>
+              <div className="text-right">5W</div>
+            </div>
+            {bowlSeasons.map((s) => {
+              const a = bowlBySeason.get(s)!
+              return (
+                <details key={s} className="group border-t border-gray-50 first:border-t-0">
+                  <summary
+                    className="grid grid-cols-[1fr_48px_44px_40px_56px_48px_48px_36px] gap-2 px-3 py-2.5 items-center text-sm cursor-pointer hover:bg-gray-50 transition-colors list-none"
+                    style={{ listStyle: 'none' }}
+                  >
+                    <div className="font-semibold text-gray-800 flex items-center gap-2">
+                      <span className="text-gray-300 group-open:rotate-90 transition-transform inline-block w-3">▸</span>
+                      {s}
+                    </div>
+                    <div className="text-right text-gray-600">{formatOvers(a.overs)}</div>
+                    <div className="text-right text-gray-600">{a.runs}</div>
+                    <div className="text-right font-semibold text-gray-900">{a.wickets}</div>
+                    <div className="text-right text-gray-600">{a.bestWkts}/{a.bestRuns === 999 ? 0 : a.bestRuns}</div>
+                    <div className="text-right text-gray-600">{fmtBowlAvg(a.runs, a.wickets)}</div>
+                    <div className="text-right text-gray-600">{fmtEcon(a.runs, a.overs)}</div>
+                    <div className="text-right text-gray-600">{a.fiveWs}</div>
+                  </summary>
+                  <div className="bg-gray-50/40 border-t border-gray-100 px-1 py-1">
+                    {a.rows
+                      .slice()
+                      .sort((x, y) => (getMatchDate(y.match_id) || '').localeCompare(getMatchDate(x.match_id) || ''))
+                      .map((row, i) => {
+                        const fid = getFixtureId(row.match_id)
+                        const content = (
+                          <>
+                            <div className="text-xs text-gray-400 min-w-[72px]">
+                              {getMatchDate(row.match_id) ? fmtDate(getMatchDate(row.match_id)) : '−'}
+                            </div>
+                            <div className="flex-1 text-sm text-gray-700 truncate">vs {getOpponent(row.match_id)}</div>
+                            <div className="text-sm font-mono text-gray-700 min-w-[90px] text-right">
+                              {formatOvers(row.overs ?? 0)}-{row.maidens ?? 0}-{row.runs ?? 0}-
+                              <span className="font-semibold text-gray-900">{row.wickets ?? 0}</span>
+                            </div>
+                          </>
+                        )
+                        return fid ? (
+                          <Link
+                            key={i}
+                            href={`/fixtures/${fid}`}
+                            className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-white no-underline text-inherit"
+                          >
+                            {content}
+                          </Link>
+                        ) : (
+                          <div key={i} className="flex items-center justify-between gap-3 px-3 py-2">
+                            {content}
+                          </div>
+                        )
+                      })}
+                  </div>
+                </details>
+              )
+            })}
           </div>
         </section>
       )}

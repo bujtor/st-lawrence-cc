@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import type { Fixture } from '@/lib/supabase'
 
 function formatFullDate(dateStr: string) {
@@ -187,11 +188,19 @@ export default function FixtureDetail({
               )}
             </div>
 
-            {/* Result */}
+            {/* Result + scorecard link */}
             {fixture.result_text && !isLive && (
-              <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
-                <div className="text-[10px] text-emerald-600 font-semibold uppercase tracking-wider mb-1">Result</div>
-                <div className="text-sm font-bold text-emerald-700">{fixture.result_text}</div>
+              <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[10px] text-emerald-600 font-semibold uppercase tracking-wider mb-1">Result</div>
+                  <div className="text-sm font-bold text-emerald-700">{fixture.result_text}</div>
+                </div>
+                <Link
+                  href={`/fixtures/${fixture.id}`}
+                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 no-underline whitespace-nowrap"
+                >
+                  View scorecard →
+                </Link>
               </div>
             )}
 
