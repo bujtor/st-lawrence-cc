@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 // GET /api/players
 export async function GET() {
+  const supabase = supabaseAdmin()
   const { data, error } = await supabase
     .from('players')
     .select('*')
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Name and role are required' }, { status: 400 })
   }
 
+  const supabase = supabaseAdmin()
   const { data, error } = await supabase
     .from('players')
     .insert({ name, role, is_ringin })
@@ -48,6 +50,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Player ID required' }, { status: 400 })
   }
 
+  const supabase = supabaseAdmin()
   const { data, error } = await supabase
     .from('players')
     .update(updates)
@@ -70,6 +73,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Player ID required' }, { status: 400 })
   }
 
+  const supabase = supabaseAdmin()
   const { error } = await supabase
     .from('players')
     .delete()

@@ -5,8 +5,12 @@ import {
   fetchPlayers,
   fetchMatches,
   fetchResults,
+  fetchMatchDetail,
   parsePCDate,
   parsePCTime,
+  parsePCOvers,
+  toIntOrNull,
+  toNumOrNull,
   type PCMatch,
   type PCResult,
 } from '@/lib/play-cricket'
@@ -246,6 +250,273 @@ async function syncFixtures(season: number) {
   return { source_count: matches.length, results_count: results.length, ...stats }
 }
 
+const OUR_CLUB_ID_SET = new Set(['9754'])
+
+function normaliseResult(result: string, resultAppliedTo: string, ourTeamId: string): string {
+  if (result === 'W') return resultAppliedTo === ourTeamId ? 'Won' : 'Lost'
+  if (result === 'T') return 'Tied'
+  if (result === 'D') return 'Drew'
+  if (result === 'A') return 'Abandoned'
+  return result
+}
+
+async function syncScorecards(season: number) {
+  const supabase = supabaseAdmin()
+
+  // 1. Get completed matches from result_summary
+  const results = await fetchResults(season)
+  if (results.length === 0) return { source_count: 0, fetched: 0, unchanged: 0, not_available: 0, error_count: 0, matches: [] }
+
+  // 2. Build a map of existing match_scorecards last_updated_pc
+  const { data: existingRows } = await supabase
+    .from('match_scorecards')
+    .select('match_id, last_updated_pc')
+    .eq('season', season)
+
+  const storedLastUpdated = new Map<number, string>()
+  for (const row of existingRows ?? []) {
+    storedLastUpdated.set(row.match_id, row.last_updated_pc ?? '')
+  }
+
+  // 3. Fetch fixture lookup: play_cricket_match_id -> fixture.id
+  const { data: fixtureRows } = await supabase
+    .from('fixtures')
+    .select('id, play_cricket_match_id')
+    .eq('season', season)
+    .not('play_cricket_match_id', 'is', null)
+
+  const fixtureByMatchId = new Map<number, number>()
+  for (const f of fixtureRows ?? []) {
+    if (f.play_cricket_match_id) fixtureByMatchId.set(f.play_cricket_match_id, f.id)
+  }
+
+  const stats = {
+    source_count: results.length,
+    fetched: 0,
+    unchanged: 0,
+    not_available: 0,
+    error_count: 0,
+    matches: [] as { match_id: number; status: string }[],
+  }
+
+  for (const r of results) {
+    const matchId = r.id
+    const pcLastUpdated = r.last_updated ?? ''
+
+    // Skip if stored last_updated matches what PC reports (use result_description as proxy if last_updated absent)
+    const storedVal = storedLastUpdated.get(matchId) ?? ''
+    if (storedVal && storedVal === pcLastUpdated) {
+      stats.unchanged++
+      stats.matches.push({ match_id: matchId, status: 'unchanged' })
+      continue
+    }
+
+    let detail = null
+    try {
+      detail = await fetchMatchDetail(matchId)
+    } catch {
+      stats.error_count++
+      stats.matches.push({ match_id: matchId, status: 'error' })
+      continue
+    }
+
+    if (!detail) {
+      stats.not_available++
+      stats.matches.push({ match_id: matchId, status: 'not_available' })
+      continue
+    }
+
+    stats.fetched++
+
+    const isHome = OUR_CLUB_ID_SET.has(detail.home_club_id)
+    const ourTeamId = isHome ? detail.home_team_id : detail.away_team_id
+    const oppTeamId = isHome ? detail.away_team_id : detail.home_team_id
+    const resultText = normaliseResult(detail.result ?? '', detail.result_applied_to ?? '', ourTeamId)
+
+    // Extract innings figures
+    let ourRuns: number | null = null
+    let ourWkts: number | null = null
+    let ourOvers: number | null = null
+    let oppRuns: number | null = null
+    let oppWkts: number | null = null
+    let oppOvers: number | null = null
+
+    for (const inn of detail.innings ?? []) {
+      const battingTeamId = inn.team_batting_id
+      const runs = toIntOrNull(inn.runs)
+      const wkts = toIntOrNull(inn.wickets)
+      const overs = parsePCOvers(inn.overs)
+      if (battingTeamId === ourTeamId) {
+        ourRuns = (ourRuns ?? 0) + (runs ?? 0)
+        ourWkts = (ourWkts ?? 0) + (wkts ?? 0)
+        ourOvers = (ourOvers ?? 0) + (overs ?? 0)
+      } else {
+        oppRuns = (oppRuns ?? 0) + (runs ?? 0)
+        oppWkts = (oppWkts ?? 0) + (wkts ?? 0)
+        oppOvers = (oppOvers ?? 0) + (overs ?? 0)
+      }
+    }
+
+    // Points
+    const ourPoints = (detail.points ?? []).find(p => String(p.team_id) === String(ourTeamId))
+    const ourGamePoints = toNumOrNull(ourPoints?.game_points)
+    const ourBonusTotal =
+      (toNumOrNull(ourPoints?.bonus_points_together) ?? 0) +
+      (toNumOrNull(ourPoints?.bonus_points_batting) ?? 0) +
+      (toNumOrNull(ourPoints?.bonus_points_bowling) ?? 0)
+
+    // Build our lineup set (player_id as string) for is_our checks
+    const homeLineup = (detail.players?.[0]?.home_team ?? []).map(p => String(p.player_id))
+    const awayLineup = (detail.players?.[1]?.away_team ?? []).map(p => String(p.player_id))
+    const ourLineupIds = new Set<string>(isHome ? homeLineup : awayLineup)
+
+    // Upsert match_scorecards
+    const scorecardRow = {
+      match_id: matchId,
+      fixture_id: fixtureByMatchId.get(matchId) ?? null,
+      season,
+      home_club_id: detail.home_club_id || null,
+      home_team_id: detail.home_team_id || null,
+      home_team_name: detail.home_team_name || null,
+      away_club_id: detail.away_club_id || null,
+      away_team_id: detail.away_team_id || null,
+      away_team_name: detail.away_team_name || null,
+      our_team_id: ourTeamId || null,
+      opponent_team_id: oppTeamId || null,
+      toss_won_by_team_id: detail.toss_won_by_team_id || null,
+      batted_first_team_id: detail.batted_first || null,
+      result: detail.result || null,
+      result_applied_to: detail.result_applied_to || null,
+      result_text: resultText || null,
+      our_game_points: ourGamePoints,
+      our_bonus_total: ourBonusTotal,
+      our_runs: ourRuns,
+      our_wickets: ourWkts,
+      our_overs: ourOvers,
+      opp_runs: oppRuns,
+      opp_wickets: oppWkts,
+      opp_overs: oppOvers,
+      no_of_overs: toIntOrNull(detail.no_of_overs),
+      competition_name: detail.competition_name || null,
+      last_updated_pc: detail.last_updated || '',
+      synced_at: new Date().toISOString(),
+    }
+
+    const { error: upsertErr } = await supabase
+      .from('match_scorecards')
+      .upsert(scorecardRow, { onConflict: 'match_id' })
+    if (upsertErr) {
+      stats.error_count++
+      stats.matches.push({ match_id: matchId, status: `error: ${upsertErr.message}` })
+      continue
+    }
+
+    // Delete existing batting/bowling/points rows
+    await supabase.from('batting_entries').delete().eq('match_id', matchId)
+    await supabase.from('bowling_entries').delete().eq('match_id', matchId)
+    await supabase.from('league_points').delete().eq('match_id', matchId)
+
+    // Insert batting entries
+    const battingRows: Record<string, unknown>[] = []
+    for (const inn of detail.innings ?? []) {
+      const isOurBatting = inn.team_batting_id === ourTeamId
+      for (const bat of inn.bat ?? []) {
+        const fielderId = toIntOrNull(bat.fielder_id)
+        battingRows.push({
+          match_id: matchId,
+          season,
+          team_batting_id: inn.team_batting_id || null,
+          innings_number: inn.innings_number,
+          position: toIntOrNull(bat.position),
+          batsman_name: bat.batsman_name || null,
+          batsman_id: toIntOrNull(bat.batsman_id),
+          how_out: bat.how_out || null,
+          fielder_name: bat.fielder_name || null,
+          fielder_id: fielderId,
+          bowler_name: bat.bowler_name || null,
+          bowler_id: toIntOrNull(bat.bowler_id),
+          runs: toIntOrNull(bat.runs),
+          fours: toIntOrNull(bat.fours),
+          sixes: toIntOrNull(bat.sixes),
+          balls: toIntOrNull(bat.balls),
+          is_our_batsman: isOurBatting,
+          // fielder is considered "ours" if they are in our lineup and they took the wicket
+          is_our_fielder: fielderId != null && ourLineupIds.has(String(fielderId)),
+        })
+      }
+    }
+    if (battingRows.length > 0) {
+      const { error: batErr } = await supabase.from('batting_entries').insert(battingRows)
+      if (batErr) {
+        stats.error_count++
+        stats.matches.push({ match_id: matchId, status: `batting error: ${batErr.message}` })
+        continue
+      }
+    }
+
+    // Insert bowling entries
+    const bowlingRows: Record<string, unknown>[] = []
+    for (const inn of detail.innings ?? []) {
+      // Bowling team is the opposite of batting team
+      const bowlingTeamId = inn.team_batting_id === ourTeamId ? oppTeamId : ourTeamId
+      const isOurBowling = bowlingTeamId === ourTeamId
+      for (const bowl of inn.bowl ?? []) {
+        bowlingRows.push({
+          match_id: matchId,
+          season,
+          team_bowling_id: bowlingTeamId || null,
+          innings_number: inn.innings_number,
+          bowler_name: bowl.bowler_name || null,
+          bowler_id: toIntOrNull(bowl.bowler_id),
+          overs: parsePCOvers(bowl.overs),
+          maidens: toIntOrNull(bowl.maidens),
+          runs: toIntOrNull(bowl.runs),
+          wickets: toIntOrNull(bowl.wickets),
+          wides: toIntOrNull(bowl.wides),
+          no_balls: toIntOrNull(bowl.no_balls),
+          is_our_bowler: isOurBowling,
+        })
+      }
+    }
+    if (bowlingRows.length > 0) {
+      const { error: bowlErr } = await supabase.from('bowling_entries').insert(bowlingRows)
+      if (bowlErr) {
+        stats.error_count++
+        stats.matches.push({ match_id: matchId, status: `bowling error: ${bowlErr.message}` })
+        continue
+      }
+    }
+
+    // Insert league points
+    const pointsRows: Record<string, unknown>[] = []
+    for (const pt of detail.points ?? []) {
+      const teamId = String(pt.team_id)
+      const teamName = teamId === detail.home_team_id ? detail.home_team_name : detail.away_team_name
+      pointsRows.push({
+        match_id: matchId,
+        team_id: teamId,
+        team_name: teamName || null,
+        game_points: toNumOrNull(pt.game_points),
+        bonus_batting: toNumOrNull(pt.bonus_points_batting),
+        bonus_bowling: toNumOrNull(pt.bonus_points_bowling),
+        bonus_together: toNumOrNull(pt.bonus_points_together),
+        penalty_points: toNumOrNull(pt.penalty_points),
+      })
+    }
+    if (pointsRows.length > 0) {
+      const { error: ptErr } = await supabase.from('league_points').insert(pointsRows)
+      if (ptErr) {
+        // Non-fatal: log but continue
+        console.error(`league_points insert error for match ${matchId}: ${ptErr.message}`)
+      }
+    }
+
+    stats.matches.push({ match_id: matchId, status: 'synced' })
+  }
+
+  return stats
+}
+
 export async function POST(req: NextRequest) {
   if (!authorized(req)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
@@ -264,6 +535,9 @@ export async function POST(req: NextRequest) {
     }
     if (target === 'fixtures' || target === 'all') {
       out.fixtures = await syncFixtures(season)
+    }
+    if (target === 'scorecards' || target === 'all') {
+      out.scorecards = await syncScorecards(season)
     }
     out.finished_at = new Date().toISOString()
     return NextResponse.json(out)

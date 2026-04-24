@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 // GET /api/fixtures?season=2026
 export async function GET(request: NextRequest) {
   const season = request.nextUrl.searchParams.get('season') || new Date().getFullYear().toString()
+  const supabase = supabaseAdmin()
 
   const { data, error } = await supabase
     .from('fixtures')
@@ -37,6 +38,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
   }
 
+  const supabase = supabaseAdmin()
   const { data, error } = await supabase
     .from('fixtures')
     .update(filtered)

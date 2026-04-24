@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 // GET /api/availability?season=2026
 export async function GET(request: NextRequest) {
   const season = request.nextUrl.searchParams.get('season') || new Date().getFullYear().toString()
+  const supabase = supabaseAdmin()
 
   const { data, error } = await supabase
     .from('availability')
@@ -33,6 +34,8 @@ export async function POST(request: NextRequest) {
   if (!player_id || !fixture_id || !status) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
+
+  const supabase = supabaseAdmin()
 
   if (status === 'none' || status === 'clear') {
     // Delete the record
