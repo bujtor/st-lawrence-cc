@@ -1,7 +1,6 @@
 {
   "crons": [
-    { "path": "/api/cron/sync", "schedule": "0 17-23 * * 6" },
-    { "path": "/api/cron/sync", "schedule": "0 10-19 * * 0" }
+    { "path": "/api/cron/sync", "schedule": "0 22 * * 6" },
+    { "path": "/api/cron/sync", "schedule": "0 12 * * 0" }
   ]
 }
-
