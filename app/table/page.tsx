@@ -120,18 +120,36 @@ export default async function TablePage({
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {standings.map((t, i) => {
+                  const pos = i + 1
+                  const total = standings.length
+                  const isPromotion = pos <= 2
+                  const isRelegation = pos >= total - 1
                   const isOurs = t.club_id === OUR_CLUB_ID
                   const fullName =
                     t.club_name && t.team_name ? `${t.club_name} - ${t.team_name}` : (t.team_name || t.club_name || '?')
                   const gamePts = t.points - t.bonus_batting - t.bonus_bowling + t.penalty_points
+
+                  // Zone colouring applies when not our row. Our row keeps the emerald identity;
+                  // we still mark the zone via the position cell.
+                  const rowClass = isOurs
+                    ? 'bg-emerald-50 border-l-4 border-emerald-500'
+                    : isPromotion
+                      ? 'bg-emerald-50/40 border-l-4 border-emerald-300 hover:bg-emerald-50'
+                      : isRelegation
+                        ? 'bg-rose-50/40 border-l-4 border-rose-300 hover:bg-rose-50'
+                        : 'hover:bg-gray-50'
+
                   return (
-                    <tr
-                      key={t.team_id}
-                      className={`transition-colors ${
-                        isOurs ? 'bg-emerald-50 border-l-4 border-emerald-500' : 'hover:bg-gray-50'
-                      }`}
-                    >
-                      <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
+                    <tr key={t.team_id} className={`transition-colors ${rowClass}`}>
+                      <td className="px-3 py-2.5 text-xs">
+                        <span className={`inline-flex items-center gap-1 ${
+                          isPromotion ? 'text-emerald-700 font-semibold' : isRelegation ? 'text-rose-700 font-semibold' : 'text-gray-400'
+                        }`}>
+                          {isPromotion && <span aria-hidden>▲</span>}
+                          {isRelegation && <span aria-hidden>▼</span>}
+                          {pos}
+                        </span>
+                      </td>
                       <td className={`px-3 py-2.5 font-semibold ${isOurs ? 'text-emerald-800' : 'text-gray-800'}`}>
                         {fullName}
                       </td>
@@ -165,6 +183,20 @@ export default async function TablePage({
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Zone legend */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-gray-500 mb-4 px-1">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block w-3 h-3 rounded-sm bg-emerald-300/50 border border-emerald-400" />
+              <span className="text-emerald-700 font-semibold">▲</span>
+              Top 2 &mdash; Promotion
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block w-3 h-3 rounded-sm bg-rose-300/50 border border-rose-400" />
+              <span className="text-rose-700 font-semibold">▼</span>
+              Bottom 2 &mdash; Relegation
+            </span>
           </div>
 
           {/* Scoring key */}
