@@ -77,8 +77,7 @@ function matchToFixtureRow(m: PCMatch, resultByMatchId: Map<number, PCResult>): 
     else resultText = r.result_description || null
   }
 
-  const lat = m.ground_latitude ? parseFloat(m.ground_latitude) : null
-  const lng = m.ground_longitude ? parseFloat(m.ground_longitude) : null
+  const { lat, lng } = parseCoords(m.ground_latitude, m.ground_longitude)
 
   return {
     play_cricket_match_id: m.id,
@@ -91,10 +90,27 @@ function matchToFixtureRow(m: PCMatch, resultByMatchId: Map<number, PCResult>): 
     competition: m.competition_name || null,
     season: parseInt(m.season, 10),
     result_text: resultText,
-    lat: Number.isFinite(lat as number) ? lat : null,
-    lng: Number.isFinite(lng as number) ? lng : null,
+    lat,
+    lng,
     last_synced: new Date().toISOString(),
   }
+}
+
+// Play-Cricket transposes lat/lng for some grounds (e.g. our home ground stores lat=0.24, lng=51.26).
+// Detect and swap when the pair looks like (UK-lng, UK-lat) rather than (UK-lat, UK-lng).
+function parseCoords(latStr: string, lngStr: string): { lat: number | null; lng: number | null } {
+  let la = parseFloat(latStr)
+  let ln = parseFloat(lngStr)
+  if (!Number.isFinite(la) || !Number.isFinite(ln)) {
+    return { lat: Number.isFinite(la) ? la : null, lng: Number.isFinite(ln) ? ln : null }
+  }
+  const looksSwapped = la >= -8 && la <= 2 && ln >= 49 && ln <= 59
+  if (looksSwapped) {
+    const tmp = la
+    la = ln
+    ln = tmp
+  }
+  return { lat: la, lng: ln }
 }
 
 async function syncPlayers() {
@@ -179,20 +195,27 @@ async function syncFixtures(season: number) {
 
   const { data: existing, error: readErr } = await supabase
     .from('fixtures')
-    .select('id, play_cricket_match_id, meet_time, result_text')
+    .select('id, play_cricket_match_id, match_date, opponent, meet_time, result_text')
     .eq('season', season)
   if (readErr) throw new Error(`read fixtures: ${readErr.message}`)
 
   const existingByPcId = new Map<number, typeof existing[number]>()
+  const existingByDateOpponent = new Map<string, typeof existing[number]>()
+  const dateOpKey = (date: string, opponent: string) => `${date}|${opponent.trim().toLowerCase()}`
   for (const f of existing ?? []) {
     if (f.play_cricket_match_id != null) existingByPcId.set(f.play_cricket_match_id, f)
+    existingByDateOpponent.set(dateOpKey(f.match_date, f.opponent), f)
   }
 
-  const stats = { added: 0, updated: 0, results_merged: 0, unchanged: 0, orphaned_kept: 0 }
+  const stats = { added: 0, updated: 0, linked_by_date: 0, results_merged: 0, unchanged: 0, orphaned_kept: 0 }
 
   for (const row of incoming) {
-    const prev = existingByPcId.get(row.play_cricket_match_id)
+    const prev =
+      existingByPcId.get(row.play_cricket_match_id) ??
+      existingByDateOpponent.get(dateOpKey(row.match_date, row.opponent))
     if (prev) {
+      const linkedNow = prev.play_cricket_match_id == null
+      if (linkedNow) stats.linked_by_date++
       // Preserve captain-edited meet_time
       const preserved: FixtureUpsert = {
         ...row,
