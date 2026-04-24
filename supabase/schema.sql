@@ -8,8 +8,13 @@ create table if not exists players (
   role text check (role in ('BAT','BOWL','AR','WK')) not null,
   is_ringin boolean default false,
   is_active boolean default true,
+  play_cricket_member_id integer,
   created_at timestamptz default now()
 );
+
+create unique index if not exists players_play_cricket_member_id_key
+  on players (play_cricket_member_id)
+  where play_cricket_member_id is not null;
 
 -- Fixtures (synced from Play-Cricket)
 create table if not exists fixtures (
