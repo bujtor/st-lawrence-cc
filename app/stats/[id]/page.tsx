@@ -72,13 +72,20 @@ export default async function PlayerPage({
 
   const scorecardMap = new Map<
     number,
-    { match_date: string; home_team_name: string; away_team_name: string; our_team_id: string; home_team_id: string; away_team_id: string }
+    {
+      match_date: string
+      home_club_name: string
+      away_club_name: string
+      our_team_id: string
+      home_team_id: string
+      away_team_id: string
+    }
   >()
 
   if (allMatchIds.length > 0) {
     const { data: scsFixed } = await supabase
       .from('match_scorecards')
-      .select('match_id, home_team_name, away_team_name, our_team_id, home_team_id, away_team_id')
+      .select('match_id, home_club_name, away_club_name, our_team_id, home_team_id, away_team_id')
       .in('match_id', allMatchIds)
 
     // match_date lives on fixtures, not scorecards — look it up there
@@ -95,8 +102,8 @@ export default async function PlayerPage({
     for (const sc of scsFixed ?? []) {
       scorecardMap.set(sc.match_id, {
         match_date: fixDateMap.get(sc.match_id) ?? '',
-        home_team_name: sc.home_team_name ?? '',
-        away_team_name: sc.away_team_name ?? '',
+        home_club_name: sc.home_club_name ?? '',
+        away_club_name: sc.away_club_name ?? '',
         our_team_id: sc.our_team_id ?? '',
         home_team_id: sc.home_team_id ?? '',
         away_team_id: sc.away_team_id ?? '',
@@ -107,7 +114,7 @@ export default async function PlayerPage({
   function getOpponent(matchId: number) {
     const sc = scorecardMap.get(matchId)
     if (!sc) return '?'
-    return sc.our_team_id === sc.home_team_id ? sc.away_team_name : sc.home_team_name
+    return (sc.our_team_id === sc.home_team_id ? sc.away_club_name : sc.home_club_name) || '?'
   }
 
   function getMatchDate(matchId: number) {

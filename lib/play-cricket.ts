@@ -13,6 +13,7 @@ export type PCMatch = {
   match_time: string // HH:MM
   league_name: string
   competition_name: string
+  competition_id: string
   competition_type: string
   match_type: string
   season: string

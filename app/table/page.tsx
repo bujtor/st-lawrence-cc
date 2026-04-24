@@ -4,6 +4,31 @@ import Link from 'next/link'
 export const dynamic = 'force-dynamic'
 
 const SEASONS = [2023, 2024, 2025, 2026]
+const OUR_CLUB_ID = '9754'
+
+type Standing = {
+  team_id: string
+  team_name: string
+  club_id: string | null
+  club_name: string | null
+  played: number
+  won: number
+  lost: number
+  tied: number
+  drew: number
+  abandoned: number
+  cancelled: number
+  bonus_batting: number
+  bonus_bowling: number
+  penalty_points: number
+  points: number
+}
+
+function fmtPts(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return '0'
+  const rounded = Math.round(n * 10) / 10
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+}
 
 export default async function TablePage({
   searchParams,
@@ -13,114 +38,41 @@ export default async function TablePage({
   const sp = await searchParams
   const season = parseInt(sp.season ?? String(new Date().getFullYear()), 10)
 
-  // Fetch league_points for this season, with scorecard info for W/L/T/D
-  const { data: pointsRows } = await supabase
-    .from('league_points')
-    .select('match_id, team_id, team_name, game_points, bonus_batting, bonus_bowling, bonus_together, penalty_points')
-    .in(
-      'match_id',
-      (
-        await supabase
-          .from('match_scorecards')
-          .select('match_id')
-          .eq('season', season)
-      ).data?.map(r => r.match_id) ?? []
+  const { data: standingsRaw } = await supabase
+    .from('league_standings')
+    .select(
+      'team_id, team_name, club_id, club_name, played, won, lost, tied, drew, abandoned, cancelled, bonus_batting, bonus_bowling, penalty_points, points'
     )
-
-  // Also get scorecards to know W/L/T/D/A per match per team
-  const { data: scorecards } = await supabase
-    .from('match_scorecards')
-    .select('match_id, result, result_applied_to, home_team_id, away_team_id, our_team_id')
     .eq('season', season)
+    .order('points', { ascending: false })
+    .order('won', { ascending: false })
 
-  // Map: match_id -> result info
-  const resultByMatch = new Map<number, { result: string; result_applied_to: string; home_team_id: string; away_team_id: string; our_team_id: string }>()
-  for (const sc of scorecards ?? []) {
-    resultByMatch.set(sc.match_id, {
-      result: sc.result ?? '',
-      result_applied_to: sc.result_applied_to ?? '',
-      home_team_id: sc.home_team_id ?? '',
-      away_team_id: sc.away_team_id ?? '',
-      our_team_id: sc.our_team_id ?? '',
-    })
-  }
+  const standings: Standing[] = (standingsRaw ?? []) as Standing[]
+  const isEmpty = standings.length === 0
 
-  type TeamRow = {
-    team_id: string
-    team_name: string
-    isOurs: boolean
-    p: number
-    w: number
-    l: number
-    t: number
-    pts: number
-  }
+  const { data: oneMatch } = await supabase
+    .from('match_scorecards')
+    .select('competition_name')
+    .eq('season', season)
+    .not('competition_name', 'is', null)
+    .limit(1)
+  const divisionName = oneMatch?.[0]?.competition_name ?? null
 
-  const teamMap = new Map<string, TeamRow>()
-
-  for (const pt of pointsRows ?? []) {
-    const tid = String(pt.team_id)
-    if (!teamMap.has(tid)) {
-      // Determine if this is our team by checking scorecards
-      const sc = resultByMatch.get(pt.match_id)
-      const isOurs = sc ? (sc.our_team_id === tid) : false
-      // Also check if tid matches home/away for our club
-      // Use the match_scorecards.our_team_id for current match
-      teamMap.set(tid, {
-        team_id: tid,
-        team_name: pt.team_name ?? tid,
-        isOurs,
-        p: 0,
-        w: 0,
-        l: 0,
-        t: 0,
-        pts: 0,
-      })
-    }
-
-    const row = teamMap.get(tid)!
-    // Keep most recent team name
-    if (pt.team_name) row.team_name = pt.team_name
-
-    const sc = resultByMatch.get(pt.match_id)
-    if (sc) {
-      // Mark ours if any match shows it
-      if (sc.our_team_id === tid) row.isOurs = true
-
-      row.p++
-      const res = sc.result ?? ''
-      if (res === 'W') {
-        if (sc.result_applied_to === tid) row.w++
-        else row.l++
-      } else if (res === 'T') {
-        row.t++
-      } else if (res === 'D') {
-        // draw: not W or L for points purposes
-      }
-      // A (abandoned) also doesn't count
-    }
-
-    const gp = pt.game_points ?? 0
-    const bb = pt.bonus_batting ?? 0
-    const bw = pt.bonus_bowling ?? 0
-    const bt = pt.bonus_together ?? 0
-    const pen = pt.penalty_points ?? 0
-    row.pts += gp + bb + bw + bt - pen
-  }
-
-  const teams = Array.from(teamMap.values()).sort((a, b) => b.pts - a.pts)
-  const isEmpty = teams.length === 0
+  const anyPenalties = standings.some((t) => t.penalty_points > 0)
+  const anyCancelled = standings.some((t) => t.cancelled > 0)
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto px-4 py-8">
       {/* Header + season selector */}
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
+      <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-extrabold text-gray-900">League Table</h1>
-          <p className="text-sm text-gray-400 mt-0.5">{season} Season</p>
+          <p className="text-sm text-gray-400 mt-0.5">
+            {divisionName ?? 'Kent County Village League'} &middot; {season} Season
+          </p>
         </div>
         <div className="flex gap-1.5">
-          {SEASONS.map(s => (
+          {SEASONS.map((s) => (
             <Link
               key={s}
               href={`/table?season=${s}`}
@@ -138,8 +90,8 @@ export default async function TablePage({
 
       {isEmpty ? (
         <div className="text-center py-16 text-gray-400">
-          <p className="text-lg font-medium">No table data for {season} yet.</p>
-          <p className="text-sm mt-1">Points populate automatically once matches are synced.</p>
+          <p className="text-lg font-medium">No standings yet for {season}.</p>
+          <p className="text-sm mt-1">The table populates as matches are played and synced.</p>
         </div>
       ) : (
         <>
@@ -149,43 +101,92 @@ export default async function TablePage({
                 <tr className="bg-gray-50 text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
                   <th className="px-3 py-2 text-left w-6">#</th>
                   <th className="px-3 py-2 text-left">Team</th>
-                  <th className="px-3 py-2 text-right">P</th>
-                  <th className="px-3 py-2 text-right">W</th>
-                  <th className="px-3 py-2 text-right">L</th>
-                  <th className="px-3 py-2 text-right">T</th>
+                  <th className="px-2 py-2 text-right" title="Played">P</th>
+                  <th className="px-2 py-2 text-right" title="Won">W</th>
+                  <th className="px-2 py-2 text-right" title="Lost">L</th>
+                  <th className="px-2 py-2 text-right hidden sm:table-cell" title="Tied">T</th>
+                  <th className="px-2 py-2 text-right hidden md:table-cell" title="Abandoned (weather etc)">A</th>
+                  {anyCancelled && (
+                    <th className="px-2 py-2 text-right hidden md:table-cell" title="Cancelled">C</th>
+                  )}
+                  <th className="px-2 py-2 text-right hidden lg:table-cell" title="Game points: Win (20), Tied (16), Abandoned/Cancelled (8)">Game</th>
+                  <th className="px-2 py-2 text-right hidden md:table-cell" title="Batting bonus points">Bat</th>
+                  <th className="px-2 py-2 text-right hidden md:table-cell" title="Bowling bonus points">Bowl</th>
+                  {anyPenalties && (
+                    <th className="px-2 py-2 text-right hidden md:table-cell" title="Penalty points">Pen</th>
+                  )}
                   <th className="px-3 py-2 text-right font-bold">Pts</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {teams.map((t, i) => (
-                  <tr
-                    key={t.team_id}
-                    className={`transition-colors ${
-                      t.isOurs
-                        ? 'bg-emerald-50 border-l-4 border-emerald-500'
-                        : 'hover:bg-gray-50'
-                    }`}
-                  >
-                    <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
-                    <td className={`px-3 py-2.5 font-semibold ${t.isOurs ? 'text-emerald-800' : 'text-gray-800'}`}>
-                      {t.team_name}
-                      {t.isOurs && <span className="ml-2 text-[10px] text-emerald-600 font-medium">(us)</span>}
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-gray-600">{t.p}</td>
-                    <td className="px-3 py-2.5 text-right text-gray-600">{t.w}</td>
-                    <td className="px-3 py-2.5 text-right text-gray-600">{t.l}</td>
-                    <td className="px-3 py-2.5 text-right text-gray-600">{t.t}</td>
-                    <td className={`px-3 py-2.5 text-right font-bold ${t.isOurs ? 'text-emerald-700' : 'text-gray-900'}`}>
-                      {t.pts.toFixed(0)}
-                    </td>
-                  </tr>
-                ))}
+                {standings.map((t, i) => {
+                  const isOurs = t.club_id === OUR_CLUB_ID
+                  const fullName =
+                    t.club_name && t.team_name ? `${t.club_name} - ${t.team_name}` : (t.team_name || t.club_name || '?')
+                  const gamePts = t.points - t.bonus_batting - t.bonus_bowling + t.penalty_points
+                  return (
+                    <tr
+                      key={t.team_id}
+                      className={`transition-colors ${
+                        isOurs ? 'bg-emerald-50 border-l-4 border-emerald-500' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
+                      <td className={`px-3 py-2.5 font-semibold ${isOurs ? 'text-emerald-800' : 'text-gray-800'}`}>
+                        {fullName}
+                      </td>
+                      <td className="px-2 py-2.5 text-right text-gray-600">{t.played}</td>
+                      <td className="px-2 py-2.5 text-right text-gray-700 font-medium">{t.won}</td>
+                      <td className="px-2 py-2.5 text-right text-gray-600">{t.lost}</td>
+                      <td className="px-2 py-2.5 text-right text-gray-600 hidden sm:table-cell">{t.tied}</td>
+                      <td className="px-2 py-2.5 text-right text-gray-500 hidden md:table-cell">{t.abandoned}</td>
+                      {anyCancelled && (
+                        <td className="px-2 py-2.5 text-right text-gray-500 hidden md:table-cell">{t.cancelled}</td>
+                      )}
+                      <td className="px-2 py-2.5 text-right text-gray-700 font-mono hidden lg:table-cell">
+                        {fmtPts(gamePts)}
+                      </td>
+                      <td className="px-2 py-2.5 text-right text-gray-600 font-mono hidden md:table-cell">
+                        {fmtPts(t.bonus_batting)}
+                      </td>
+                      <td className="px-2 py-2.5 text-right text-gray-600 font-mono hidden md:table-cell">
+                        {fmtPts(t.bonus_bowling)}
+                      </td>
+                      {anyPenalties && (
+                        <td className="px-2 py-2.5 text-right text-rose-600 font-mono hidden md:table-cell">
+                          {t.penalty_points > 0 ? `-${fmtPts(t.penalty_points)}` : '—'}
+                        </td>
+                      )}
+                      <td className={`px-3 py-2.5 text-right font-bold ${isOurs ? 'text-emerald-700' : 'text-gray-900'}`}>
+                        {fmtPts(t.points)}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-gray-400 text-center">
-            Our division this season — based on matches played. Includes only teams St Lawrence CC has played against.
-          </p>
+
+          {/* Scoring key */}
+          <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 text-xs text-gray-500 leading-relaxed">
+            <div className="font-semibold text-gray-600 uppercase tracking-wider text-[10px] mb-2">How points work</div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-x-4 gap-y-1">
+              <div>Win <span className="font-mono text-gray-700 font-semibold">20</span></div>
+              <div>Lost <span className="font-mono text-gray-700 font-semibold">0</span></div>
+              <div>Tied <span className="font-mono text-gray-700 font-semibold">16</span></div>
+              <div>Abandoned <span className="font-mono text-gray-700 font-semibold">8</span></div>
+              <div>Cancelled <span className="font-mono text-gray-700 font-semibold">8</span></div>
+              <div>Opp. conceded <span className="font-mono text-gray-700 font-semibold">20</span></div>
+              <div>Team conceded <span className="font-mono text-gray-700 font-semibold">0</span></div>
+              <div>+ Batting bonus</div>
+              <div>+ Bowling bonus</div>
+              <div>− Penalties</div>
+            </div>
+            <div className="mt-2 text-gray-400">
+              <span className="font-semibold">Game</span> column = Win/Tied/Abandoned/Cancelled points combined.
+              Resize or rotate on a wider screen to see all columns.
+            </div>
+          </div>
         </>
       )}
     </div>
