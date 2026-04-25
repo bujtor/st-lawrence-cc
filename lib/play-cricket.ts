@@ -76,6 +76,25 @@ export async function fetchResults(season: number): Promise<PCResult[]> {
   return json.result_summary ?? []
 }
 
+// League Table API — single-call division standings, authoritative.
+// Returns { league_table: [{ id, name, headings: {column_1:'Team', column_2:'p', ...},
+//                            values: [{ position, team_id, column_1: '...', ... }] }] }
+// where columns vary by competition. Caller maps headings → column_N to extract values.
+export type PCLeagueTableHeadings = Record<string, string>
+export type PCLeagueTableRow = { position: string; team_id: string } & Record<string, string>
+export type PCLeagueTable = {
+  id: number
+  name: string
+  headings: PCLeagueTableHeadings
+  values: PCLeagueTableRow[]
+}
+export async function fetchLeagueTable(divisionId: string | number): Promise<PCLeagueTable | null> {
+  const { token } = requireEnv()
+  const url = `${BASE}/league_table.json?division_id=${divisionId}&api_token=${token}`
+  const json = await fetchJson<{ league_table: PCLeagueTable[] }>(url)
+  return json.league_table?.[0] ?? null
+}
+
 // DD/MM/YYYY -> YYYY-MM-DD
 export function parsePCDate(dmy: string): string {
   const [d, m, y] = dmy.split('/')

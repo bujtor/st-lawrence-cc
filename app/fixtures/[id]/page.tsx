@@ -125,6 +125,25 @@ export default async function ScorecardPage({
     return 0
   })
 
+  // Captain/keeper IDs by team_id (for the (c) and † markers)
+  const teamMeta: Record<string, { captainId: string | null; keeperId: string | null }> = {}
+  if (scorecard?.home_team_id) {
+    teamMeta[scorecard.home_team_id] = {
+      captainId: scorecard.home_captain_id ?? null,
+      keeperId: scorecard.home_wicket_keeper_id ?? null,
+    }
+  }
+  if (scorecard?.away_team_id) {
+    teamMeta[scorecard.away_team_id] = {
+      captainId: scorecard.away_captain_id ?? null,
+      keeperId: scorecard.away_wicket_keeper_id ?? null,
+    }
+  }
+
+  // Extras + FoW per team (jsonb keyed by team_batting_id)
+  const extrasByTeam = (scorecard?.extras ?? {}) as Record<string, NonNullable<InningsView['extras']>>
+  const fowByTeam = (scorecard?.fow ?? {}) as Record<string, InningsView['fow']>
+
   const views: InningsView[] = orderedTeams.map((battingTeam) => {
     const other = teams.find((t) => t.id !== battingTeam.id)
     const batRows = batByTeam.get(battingTeam.id) ?? []
@@ -155,6 +174,12 @@ export default async function ScorecardPage({
       totalOvers,
       batting: batRows,
       bowling: bowlRows,
+      battingCaptainId: teamMeta[battingTeam.id]?.captainId ?? null,
+      battingKeeperId: teamMeta[battingTeam.id]?.keeperId ?? null,
+      bowlingCaptainId: other ? teamMeta[other.id]?.captainId ?? null : null,
+      bowlingKeeperId: other ? teamMeta[other.id]?.keeperId ?? null : null,
+      extras: extrasByTeam[battingTeam.id] ?? null,
+      fow: fowByTeam[battingTeam.id] ?? [],
     }
   })
 
@@ -207,8 +232,8 @@ export default async function ScorecardPage({
         )}
       </div>
 
-      {/* Toss / format */}
-      {scorecard && (scorecard.toss_won_by_team_id || scorecard.batted_first_team_id) && (
+      {/* Toss / format / scorer notes */}
+      {scorecard && (scorecard.toss_won_by_team_id || scorecard.batted_first_team_id || scorecard.match_notes) && (
         <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 mb-6 text-sm text-gray-600">
           {scorecard.toss_won_by_team_id && (
             <div>
@@ -228,6 +253,20 @@ export default async function ScorecardPage({
           )}
           {scorecard.no_of_overs && (
             <div className="text-xs text-gray-400 mt-0.5">{scorecard.no_of_overs} overs per side.</div>
+          )}
+          {scorecard.match_notes && (
+            <details className="mt-3 pt-3 border-t border-gray-200 text-sm group">
+              <summary className="cursor-pointer text-emerald-700 hover:text-emerald-800 font-semibold text-xs uppercase tracking-wider list-none flex items-center gap-1">
+                <span className="text-gray-300 group-open:rotate-90 transition-transform inline-block w-3">▸</span>
+                Match flow & milestones
+              </summary>
+              <div
+                className="mt-3 text-xs text-gray-700 leading-relaxed font-mono whitespace-pre-line"
+                dangerouslySetInnerHTML={{
+                  __html: sanitiseMatchNotes(scorecard.match_notes),
+                }}
+              />
+            </details>
           )}
         </div>
       )}
@@ -282,4 +321,21 @@ function countDismissals(rows: ScBat[]): number {
     const h = (r.how_out ?? '').toLowerCase()
     return h && h !== 'not out' && h !== 'did not bat'
   }).length
+}
+
+// match_notes from PC arrives as HTML (br tags, bold tags). Sanitise to a small
+// allowlist (br + b only) — anything else is escaped. Source is the scorer's text
+// uploaded via PCS, which is not user-controllable from our site, but we still
+// belt-and-braces this since it lands in dangerouslySetInnerHTML.
+function sanitiseMatchNotes(raw: string): string {
+  // Escape everything first
+  const esc = raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  // Re-allow <br>, <br/>, <br /> and <b>...</b>
+  return esc
+    .replace(/&lt;br\s*\/?&gt;/gi, '<br/>')
+    .replace(/&lt;b&gt;/gi, '<b class="text-gray-900 font-semibold">')
+    .replace(/&lt;\/b&gt;/gi, '</b>')
 }

@@ -6,6 +6,7 @@ import {
   fetchMatches,
   fetchResults,
   fetchMatchDetail,
+  fetchLeagueTable,
   parsePCDate,
   parsePCTime,
   parsePCOvers,
@@ -13,6 +14,7 @@ import {
   toNumOrNull,
   type PCMatch,
   type PCResult,
+  type PCLeagueTableRow,
 } from '@/lib/play-cricket'
 
 export const dynamic = 'force-dynamic'
@@ -366,9 +368,56 @@ async function syncScorecards(season: number) {
       (toNumOrNull(ourPoints?.bonus_points_bowling) ?? 0)
 
     // Build our lineup set (player_id as string) for is_our checks
-    const homeLineup = (detail.players?.[0]?.home_team ?? []).map(p => String(p.player_id))
-    const awayLineup = (detail.players?.[1]?.away_team ?? []).map(p => String(p.player_id))
+    const homePlayers = detail.players?.[0]?.home_team ?? []
+    const awayPlayers = detail.players?.[1]?.away_team ?? []
+    const homeLineup = homePlayers.map(p => String(p.player_id))
+    const awayLineup = awayPlayers.map(p => String(p.player_id))
     const ourLineupIds = new Set<string>(isHome ? homeLineup : awayLineup)
+
+    // Captain + keeper IDs per team (for the (c) and † markers in the scorecard)
+    const homeCaptain = homePlayers.find(p => p.captain)?.player_id
+    const homeKeeper  = homePlayers.find(p => p.wicket_keeper)?.player_id
+    const awayCaptain = awayPlayers.find(p => p.captain)?.player_id
+    const awayKeeper  = awayPlayers.find(p => p.wicket_keeper)?.player_id
+
+    // Per-innings extras + fall-of-wickets, keyed by team_batting_id
+    const extrasByTeam: Record<string, {
+      byes: number; leg_byes: number; wides: number; no_balls: number;
+      penalty: number; total: number;
+    }> = {}
+    const fowByTeam: Record<string, Array<{
+      runs: number; wickets: number;
+      batsman_out_id: string | null; batsman_out_name: string | null;
+      batsman_in_id: string | null;  batsman_in_name: string | null;
+      batsman_in_runs: number | null;
+    }>> = {}
+    for (const inn of detail.innings ?? []) {
+      const tid = inn.team_batting_id
+      if (!tid) continue
+      extrasByTeam[tid] = {
+        byes: toIntOrNull(inn.extra_byes) ?? 0,
+        leg_byes: toIntOrNull(inn.extra_leg_byes) ?? 0,
+        wides: toIntOrNull(inn.extra_wides) ?? 0,
+        no_balls: toIntOrNull(inn.extra_no_balls) ?? 0,
+        penalty: toIntOrNull((inn as { extra_penalty_runs?: string }).extra_penalty_runs) ?? 0,
+        total: toIntOrNull(inn.total_extras) ?? 0,
+      }
+      const fowRaw = (inn as { fow?: Array<{
+        runs: string | number; wickets: string | number;
+        batsman_out_id?: string; batsman_out_name?: string;
+        batsman_in_id?: string;  batsman_in_name?: string;
+        batsman_in_runs?: string | number;
+      }> }).fow ?? []
+      fowByTeam[tid] = fowRaw.map(f => ({
+        runs: toIntOrNull(String(f.runs)) ?? 0,
+        wickets: toIntOrNull(String(f.wickets)) ?? 0,
+        batsman_out_id: f.batsman_out_id || null,
+        batsman_out_name: f.batsman_out_name || null,
+        batsman_in_id: f.batsman_in_id || null,
+        batsman_in_name: f.batsman_in_name || null,
+        batsman_in_runs: toIntOrNull(String(f.batsman_in_runs ?? '')),
+      }))
+    }
 
     // Upsert match_scorecards
     const scorecardRow = {
@@ -401,6 +450,13 @@ async function syncScorecards(season: number) {
       opp_overs: oppOvers,
       no_of_overs: toIntOrNull(detail.no_of_overs),
       competition_name: detail.competition_name || null,
+      home_captain_id: homeCaptain ? String(homeCaptain) : null,
+      home_wicket_keeper_id: homeKeeper ? String(homeKeeper) : null,
+      away_captain_id: awayCaptain ? String(awayCaptain) : null,
+      away_wicket_keeper_id: awayKeeper ? String(awayKeeper) : null,
+      match_notes: (detail as { match_notes?: string }).match_notes || null,
+      fow: fowByTeam,
+      extras: extrasByTeam,
       last_updated_pc: detail.last_updated || '',
       synced_at: new Date().toISOString(),
     }
@@ -523,17 +579,17 @@ async function syncScorecards(season: number) {
   return stats
 }
 
-// Play-Cricket's API has no league-table endpoint. Aggregate our own by fetching
-// every division-member club's result_summary for the season, then summing points
-// across matches filtered by competition_id.
+// One-call standings via Play-Cricket's official League Table API. Returns the
+// authoritative division table with all PC's columns including wcn (opposition
+// conceded) and lcn (team conceded), which we couldn't derive from result_summary.
 async function syncLeagueStandings(season: number) {
   const supabase = supabaseAdmin()
 
-  // 1. Identify our division's competition_id for this season. Use the most common
-  //    competition_id from league matches we played (filters out friendlies/cups).
+  // Identify our division_id for this season — the competition_id stored on our
+  // league matches. (Friendlies/cups have empty competition_id.)
   const { data: ourScorecards } = await supabase
     .from('match_scorecards')
-    .select('competition_id, home_club_id, away_club_id')
+    .select('competition_id, home_club_id, away_club_id, home_club_name, away_club_name, home_team_id, away_team_id')
     .eq('season', season)
     .not('competition_id', 'is', null)
     .neq('competition_id', '')
@@ -542,166 +598,85 @@ async function syncLeagueStandings(season: number) {
     return { status: 'skipped', reason: 'no league scorecards synced yet for this season' }
   }
 
-  const competitionCounts = new Map<string, number>()
+  const compCounts = new Map<string, number>()
   for (const sc of ourScorecards) {
-    if (sc.competition_id) competitionCounts.set(sc.competition_id, (competitionCounts.get(sc.competition_id) ?? 0) + 1)
+    if (sc.competition_id) compCounts.set(sc.competition_id, (compCounts.get(sc.competition_id) ?? 0) + 1)
   }
-  const competitionId = [...competitionCounts.entries()].sort((a, b) => b[1] - a[1])[0][0]
+  const competitionId = [...compCounts.entries()].sort((a, b) => b[1] - a[1])[0][0]
 
-  // 2. Collect the clubs we played in this division.
-  const clubIds = new Set<string>([OUR_CLUB_ID])
+  // Build a team_id -> {club_id, club_name} map from our scorecards so we can
+  // attach club info to the table rows (the league_table API only gives us team_name).
+  const clubByTeamId = new Map<string, { club_id: string; club_name: string }>()
   for (const sc of ourScorecards) {
-    if (sc.home_club_id) clubIds.add(sc.home_club_id)
-    if (sc.away_club_id) clubIds.add(sc.away_club_id)
-  }
-
-  // 3. Fetch each club's result_summary in parallel, keep only division matches.
-  type PCRSMatch = {
-    id: number
-    competition_id: string
-    result: string
-    result_applied_to: string
-    home_team_id: string
-    home_team_name: string
-    home_club_id: string
-    home_club_name: string
-    away_team_id: string
-    away_team_name: string
-    away_club_id: string
-    away_club_name: string
-    points?: Array<{
-      team_id: number | string
-      game_points: string
-      penalty_points: string
-      bonus_points_together: string
-      bonus_points_batting: string
-      bonus_points_bowling: string
-    }>
-  }
-
-  const token = process.env.PLAY_CRICKET_API_TOKEN!
-  const base = 'https://play-cricket.com/api/v2/result_summary.json'
-
-  const fetches = await Promise.all(
-    [...clubIds].map(async (clubId) => {
-      const url = `${base}?site_id=${clubId}&season=${season}&api_token=${token}`
-      try {
-        const res = await fetch(url, { cache: 'no-store' })
-        if (!res.ok) return { clubId, matches: [] as PCRSMatch[], err: `HTTP ${res.status}` }
-        const json = (await res.json()) as { result_summary?: PCRSMatch[] }
-        return { clubId, matches: json.result_summary ?? [], err: null }
-      } catch (e) {
-        return { clubId, matches: [] as PCRSMatch[], err: e instanceof Error ? e.message : 'fetch error' }
-      }
-    })
-  )
-
-  // 4. Aggregate. Dedupe by match_id (each division match appears in both clubs' feeds).
-  type TeamAgg = {
-    team_id: string
-    team_name: string
-    club_id: string
-    club_name: string
-    played: number
-    won: number
-    lost: number
-    tied: number
-    drew: number
-    abandoned: number
-    cancelled: number
-    bonus_batting: number
-    bonus_bowling: number
-    bonus_together: number
-    penalty_points: number
-    points: number
-  }
-
-  const teams = new Map<string, TeamAgg>()
-  const seenMatches = new Set<number>()
-
-  function getOrCreate(teamId: string, teamName: string, clubId: string, clubName: string): TeamAgg {
-    let t = teams.get(teamId)
-    if (!t) {
-      t = {
-        team_id: teamId,
-        team_name: teamName,
-        club_id: clubId,
-        club_name: clubName,
-        played: 0, won: 0, lost: 0, tied: 0, drew: 0, abandoned: 0, cancelled: 0,
-        bonus_batting: 0, bonus_bowling: 0, bonus_together: 0, penalty_points: 0, points: 0,
-      }
-      teams.set(teamId, t)
-    } else {
-      // Keep latest non-empty name
-      if (teamName) t.team_name = teamName
-      if (clubName) t.club_name = clubName
+    if (sc.home_team_id && sc.home_club_id) {
+      clubByTeamId.set(sc.home_team_id, {
+        club_id: sc.home_club_id,
+        club_name: sc.home_club_name ?? '',
+      })
     }
-    return t
-  }
-
-  for (const { matches } of fetches) {
-    for (const m of matches) {
-      if (m.competition_id !== competitionId) continue
-      if (seenMatches.has(m.id)) continue
-      seenMatches.add(m.id)
-
-      const home = getOrCreate(m.home_team_id, m.home_team_name, m.home_club_id, m.home_club_name)
-      const away = getOrCreate(m.away_team_id, m.away_team_name, m.away_club_id, m.away_club_name)
-
-      // Every match that reaches us is a scheduled division fixture — count Played.
-      home.played++; away.played++
-      // Then count the specific outcome when we recognise the code.
-      const r = m.result || ''
-      if (r === 'W') {
-        if (m.result_applied_to === m.home_team_id) { home.won++; away.lost++ }
-        else { away.won++; home.lost++ }
-      } else if (r === 'T') { home.tied++; away.tied++ }
-      else if (r === 'D') { home.drew++; away.drew++ }
-      else if (r === 'A') { home.abandoned++; away.abandoned++ }
-      else if (r === 'C') { home.cancelled++; away.cancelled++ }
-      // Empty result = cancelled/not-played-to-a-result in PC's internal state; still counts as played.
-
-      // Points. Play-Cricket sends `bonus_points_together` = batting + bowling
-      // (redundant aggregate), so we only add the two components to the total.
-      for (const pt of m.points ?? []) {
-        const tid = String(pt.team_id)
-        const t = teams.get(tid)
-        if (!t) continue
-        const gp = parseFloat(pt.game_points || '0') || 0
-        const bb = parseFloat(pt.bonus_points_batting || '0') || 0
-        const bw = parseFloat(pt.bonus_points_bowling || '0') || 0
-        const pen = parseFloat(pt.penalty_points || '0') || 0
-        t.bonus_batting += bb
-        t.bonus_bowling += bw
-        t.bonus_together += bb + bw
-        t.penalty_points += pen
-        t.points += gp + bb + bw - pen
-      }
+    if (sc.away_team_id && sc.away_club_id) {
+      clubByTeamId.set(sc.away_team_id, {
+        club_id: sc.away_club_id,
+        club_name: sc.away_club_name ?? '',
+      })
     }
   }
 
-  // 5. Upsert. Clear existing rows for this season+competition, then insert the new set.
-  const rows = [...teams.values()].map((t) => ({
-    season,
-    competition_id: competitionId,
-    team_id: t.team_id,
-    team_name: t.team_name || t.team_id,
-    club_id: t.club_id || null,
-    club_name: t.club_name || null,
-    played: t.played,
-    won: t.won,
-    lost: t.lost,
-    tied: t.tied,
-    drew: t.drew,
-    abandoned: t.abandoned,
-    cancelled: t.cancelled,
-    bonus_batting: t.bonus_batting,
-    bonus_bowling: t.bonus_bowling,
-    bonus_together: t.bonus_together,
-    penalty_points: t.penalty_points,
-    points: t.points,
-    synced_at: new Date().toISOString(),
-  }))
+  const table = await fetchLeagueTable(competitionId)
+  if (!table) {
+    return { status: 'failed', reason: 'league_table.json returned empty', competition_id: competitionId }
+  }
+
+  // The headings map is column_N -> label (e.g. 'p', 'w', 'wcn', 'BatP'). Find each
+  // label's column key so we can look up the value per row.
+  const headingToCol = new Map<string, string>()
+  for (const [col, label] of Object.entries(table.headings ?? {})) {
+    headingToCol.set(String(label).toLowerCase(), col)
+  }
+  const get = (row: PCLeagueTableRow, label: string): string => {
+    const col = headingToCol.get(label.toLowerCase())
+    return col ? (row as Record<string, string>)[col] ?? '' : ''
+  }
+  const getNum = (row: PCLeagueTableRow, label: string): number => {
+    const v = get(row, label)
+    const n = parseFloat(v)
+    return Number.isFinite(n) ? n : 0
+  }
+
+  // Map the table values into our league_standings schema.
+  const rows = table.values.map((v) => {
+    const teamName = get(v, 'team') || (v as Record<string, string>).column_1 || ''
+    const clubInfo = clubByTeamId.get(v.team_id)
+    const won = getNum(v, 'w')
+    const wcn = getNum(v, 'wcn')
+    const lost = getNum(v, 'l')
+    const lcn = getNum(v, 'lcn')
+    const bonus_batting = getNum(v, 'batp')
+    const bonus_bowling = getNum(v, 'bowlp')
+    return {
+      season,
+      competition_id: competitionId,
+      team_id: v.team_id,
+      team_name: teamName || v.team_id,
+      club_id: clubInfo?.club_id ?? null,
+      club_name: clubInfo?.club_name ?? null,
+      played: getNum(v, 'p'),
+      won,
+      lost,
+      tied: getNum(v, 't'),
+      drew: 0, // PC's KCVL table doesn't expose 'd' separately
+      abandoned: getNum(v, 'a'),
+      cancelled: getNum(v, 'c'),
+      wcn,
+      lcn,
+      bonus_batting,
+      bonus_bowling,
+      bonus_together: bonus_batting + bonus_bowling,
+      penalty_points: getNum(v, 'pen'),
+      points: getNum(v, 'pts'),
+      synced_at: new Date().toISOString(),
+    }
+  })
 
   await supabase.from('league_standings').delete().eq('season', season).eq('competition_id', competitionId)
   if (rows.length > 0) {
@@ -712,10 +687,9 @@ async function syncLeagueStandings(season: number) {
   return {
     season,
     competition_id: competitionId,
-    clubs_fetched: fetches.length,
-    fetch_errors: fetches.filter((f) => f.err).map((f) => ({ club: f.clubId, err: f.err })),
-    unique_matches: seenMatches.size,
+    division_name: table.name,
     teams: rows.length,
+    source: 'league_table.json',
   }
 }
 
