@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
-import { formatOvers } from '@/lib/play-cricket'
 import { aggregateBatting, aggregateBowling, type BatRow, type BowlRow } from '@/lib/aggregations'
+import LeaderboardTable, { type BatterRow, type BowlerRow, type FielderRow } from '@/components/LeaderboardTable'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -11,27 +11,6 @@ const ALL_SEASONS = Array.from({ length: 2026 - 2008 + 1 }, (_, i) => 2008 + i)
 
 const ALL_TIME = 'all' as const
 type SeasonParam = number | typeof ALL_TIME
-
-function fmtAvg(runs: number, inns: number, notOut: number): string {
-  const denom = inns - notOut
-  if (denom <= 0) return '−'
-  return (runs / denom).toFixed(1)
-}
-
-function fmtBowlAvg(runs: number, wkts: number): string {
-  if (wkts === 0) return '−'
-  return (runs / wkts).toFixed(1)
-}
-
-function fmtEcon(runs: number, overs: number): string {
-  if (overs === 0) return '−'
-  return (runs / overs).toFixed(2)
-}
-
-function fmtSR(runs: number, balls: number): string {
-  if (balls === 0) return '−'
-  return ((runs / balls) * 100).toFixed(1)
-}
 
 export default async function StatsPage({
   searchParams,
@@ -112,8 +91,19 @@ export default async function StatsPage({
 
   const batterMap = aggregateBatting((battingRaw ?? []) as BatRow[])
 
-  const allBatters = Array.from(batterMap.values())
-    .sort((a, b) => b.runs - a.runs)
+  // Convert to serialisable plain rows for the client component (Set → number)
+  const batters: BatterRow[] = Array.from(batterMap.values()).map((b) => ({
+    id: b.id,
+    name: b.name,
+    matches: b.matches.size,
+    inns: b.inns,
+    notOut: b.notOut,
+    runs: b.runs,
+    hs: b.hs,
+    fifties: b.fifties,
+    hundreds: b.hundreds,
+    totalBalls: b.totalBalls,
+  }))
 
   // Top Bowlers
   let bowlingQ = supabase
@@ -126,9 +116,19 @@ export default async function StatsPage({
 
   const bowlerMap = aggregateBowling((bowlingRaw ?? []) as BowlRow[])
 
-  const allBowlers = Array.from(bowlerMap.values())
-    .filter(b => b.wickets > 0)
-    .sort((a, b) => b.wickets - a.wickets || (a.wickets > 0 ? a.runs / a.wickets - b.runs / b.wickets : 0))
+  const bowlers: BowlerRow[] = Array.from(bowlerMap.values())
+    .filter((b) => b.wickets > 0)
+    .map((b) => ({
+      id: b.id,
+      name: b.name,
+      matches: b.matches.size,
+      overs: b.overs,
+      runs: b.runs,
+      wickets: b.wickets,
+      bestWkts: b.bestWkts,
+      bestRuns: b.bestRuns,
+      fiveWs: b.fiveWs,
+    }))
 
   // Top Fielders
   let fieldingQ = supabase
@@ -160,10 +160,9 @@ export default async function StatsPage({
     else if (ho.startsWith('st')) agg.stumpings++
   }
 
-  const allFielders = Array.from(fielderMap.values())
-    .map(f => ({ ...f, total: f.catches + f.runOuts + f.stumpings }))
-    .filter(f => f.total > 0)
-    .sort((a, b) => b.total - a.total)
+  const fielders: FielderRow[] = Array.from(fielderMap.values())
+    .map((f) => ({ ...f, total: f.catches + f.runOuts + f.stumpings }))
+    .filter((f) => f.total > 0)
 
   const recentSeasons = ALL_SEASONS.slice(-4) // last 4 seasons
   const olderSeasons = ALL_SEASONS.slice(0, -4).slice().reverse() // 2008-2022 desc
@@ -264,251 +263,42 @@ export default async function StatsPage({
             </div>
           </section>
 
-          {/* Section 2: Top Batters */}
-          {allBatters.length > 0 && (
+          {/* Top Batters */}
+          {batters.length > 0 && (
             <section className="mb-10">
               <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">
                 Top Batters
                 <span className="text-gray-300 font-normal normal-case tracking-normal ml-2">
-                  · {allBatters.length} {allBatters.length === 1 ? 'batter' : 'batters'}
+                  · {batters.length} {batters.length === 1 ? 'batter' : 'batters'} &middot; click any column to sort
                 </span>
               </h2>
-              <div className="rounded-xl border border-gray-100 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-gray-50 text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
-                        <th className="px-3 py-2 text-left w-6">#</th>
-                        <th className="px-3 py-2 text-left">Name</th>
-                        <th className="px-3 py-2 text-right">M</th>
-                        <th className="px-3 py-2 text-right">Inn</th>
-                        <th className="px-3 py-2 text-right">NO</th>
-                        <th className="px-3 py-2 text-right">Runs</th>
-                        <th className="px-3 py-2 text-right">HS</th>
-                        <th className="px-3 py-2 text-right">Avg</th>
-                        <th className="px-3 py-2 text-right">50/100</th>
-                        <th className="px-3 py-2 text-right">SR</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {allBatters.slice(0, 10).map((b, i) => (
-                        <tr key={b.id ?? b.name} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
-                          <td className="px-3 py-2.5">
-                            {b.id ? (
-                              <Link href={`/stats/${b.id}`} className="font-medium text-gray-800 hover:text-emerald-700 no-underline">
-                                {b.name}
-                              </Link>
-                            ) : (
-                              <span className="font-medium text-gray-800">{b.name}</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2.5 text-right text-gray-600">{b.matches.size}</td>
-                          <td className="px-3 py-2.5 text-right text-gray-600">{b.inns}</td>
-                          <td className="px-3 py-2.5 text-right text-gray-600">{b.notOut}</td>
-                          <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{b.runs}</td>
-                          <td className="px-3 py-2.5 text-right text-gray-600">{b.hs}</td>
-                          <td className="px-3 py-2.5 text-right text-gray-600">{fmtAvg(b.runs, b.inns, b.notOut)}</td>
-                          <td className="px-3 py-2.5 text-right text-gray-600">{b.fifties}/{b.hundreds}</td>
-                          <td className="px-3 py-2.5 text-right text-gray-600">{fmtSR(b.runs, b.totalBalls)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {allBatters.length > 10 && (
-                  <details className="border-t border-gray-100 group">
-                    <summary className="px-3 py-2.5 cursor-pointer text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50/30 transition-colors list-none flex items-center gap-1.5">
-                      <span className="text-gray-300 group-open:rotate-90 transition-transform inline-block w-3">▸</span>
-                      Show all {allBatters.length} batters
-                    </summary>
-                    <div className="overflow-x-auto border-t border-gray-100">
-                      <table className="w-full text-sm">
-                        <tbody className="divide-y divide-gray-50">
-                          {allBatters.slice(10).map((b, i) => (
-                            <tr key={b.id ?? b.name} className="hover:bg-gray-50 transition-colors">
-                              <td className="px-3 py-2.5 text-gray-400 text-xs w-6">{i + 11}</td>
-                              <td className="px-3 py-2.5">
-                                {b.id ? (
-                                  <Link href={`/stats/${b.id}`} className="font-medium text-gray-800 hover:text-emerald-700 no-underline">
-                                    {b.name}
-                                  </Link>
-                                ) : (
-                                  <span className="font-medium text-gray-800">{b.name}</span>
-                                )}
-                              </td>
-                              <td className="px-3 py-2.5 text-right text-gray-600">{b.matches.size}</td>
-                              <td className="px-3 py-2.5 text-right text-gray-600">{b.inns}</td>
-                              <td className="px-3 py-2.5 text-right text-gray-600">{b.notOut}</td>
-                              <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{b.runs}</td>
-                              <td className="px-3 py-2.5 text-right text-gray-600">{b.hs}</td>
-                              <td className="px-3 py-2.5 text-right text-gray-600">{fmtAvg(b.runs, b.inns, b.notOut)}</td>
-                              <td className="px-3 py-2.5 text-right text-gray-600">{b.fifties}/{b.hundreds}</td>
-                              <td className="px-3 py-2.5 text-right text-gray-600">{fmtSR(b.runs, b.totalBalls)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </details>
-                )}
-              </div>
+              <LeaderboardTable kind="batters" rows={batters} defaultSortKey="runs" />
             </section>
           )}
 
-          {/* Section 3: Top Bowlers */}
-          {allBowlers.length > 0 && (
+          {/* Top Bowlers */}
+          {bowlers.length > 0 && (
             <section className="mb-10">
               <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">
                 Top Bowlers
                 <span className="text-gray-300 font-normal normal-case tracking-normal ml-2">
-                  · {allBowlers.length} {allBowlers.length === 1 ? 'bowler' : 'bowlers'}
+                  · {bowlers.length} {bowlers.length === 1 ? 'bowler' : 'bowlers'} &middot; click any column to sort
                 </span>
               </h2>
-              <div className="rounded-xl border border-gray-100 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-gray-50 text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
-                        <th className="px-3 py-2 text-left w-6">#</th>
-                        <th className="px-3 py-2 text-left">Name</th>
-                        <th className="px-3 py-2 text-right">M</th>
-                        <th className="px-3 py-2 text-right">O</th>
-                        <th className="px-3 py-2 text-right">R</th>
-                        <th className="px-3 py-2 text-right">W</th>
-                        <th className="px-3 py-2 text-right">Best</th>
-                        <th className="px-3 py-2 text-right">Avg</th>
-                        <th className="px-3 py-2 text-right">Econ</th>
-                        <th className="px-3 py-2 text-right">5W</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {allBowlers.slice(0, 10).map((b, i) => (
-                        <tr key={b.id ?? b.name} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
-                          <td className="px-3 py-2.5">
-                            {b.id ? (
-                              <Link href={`/stats/${b.id}`} className="font-medium text-gray-800 hover:text-emerald-700 no-underline">
-                                {b.name}
-                              </Link>
-                            ) : (
-                              <span className="font-medium text-gray-800">{b.name}</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2.5 text-right text-gray-600">{b.matches.size}</td>
-                          <td className="px-3 py-2.5 text-right text-gray-600">{formatOvers(b.overs)}</td>
-                          <td className="px-3 py-2.5 text-right text-gray-600">{b.runs}</td>
-                          <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{b.wickets}</td>
-                          <td className="px-3 py-2.5 text-right text-gray-600">{b.bestWkts}/{b.bestRuns === 999 ? 0 : b.bestRuns}</td>
-                          <td className="px-3 py-2.5 text-right text-gray-600">{fmtBowlAvg(b.runs, b.wickets)}</td>
-                          <td className="px-3 py-2.5 text-right text-gray-600">{fmtEcon(b.runs, b.overs)}</td>
-                          <td className="px-3 py-2.5 text-right text-gray-600">{b.fiveWs}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {allBowlers.length > 10 && (
-                  <details className="border-t border-gray-100 group">
-                    <summary className="px-3 py-2.5 cursor-pointer text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50/30 transition-colors list-none flex items-center gap-1.5">
-                      <span className="text-gray-300 group-open:rotate-90 transition-transform inline-block w-3">▸</span>
-                      Show all {allBowlers.length} bowlers
-                    </summary>
-                    <div className="overflow-x-auto border-t border-gray-100">
-                      <table className="w-full text-sm">
-                        <tbody className="divide-y divide-gray-50">
-                          {allBowlers.slice(10).map((b, i) => (
-                            <tr key={b.id ?? b.name} className="hover:bg-gray-50 transition-colors">
-                              <td className="px-3 py-2.5 text-gray-400 text-xs w-6">{i + 11}</td>
-                              <td className="px-3 py-2.5">
-                                {b.id ? (
-                                  <Link href={`/stats/${b.id}`} className="font-medium text-gray-800 hover:text-emerald-700 no-underline">
-                                    {b.name}
-                                  </Link>
-                                ) : (
-                                  <span className="font-medium text-gray-800">{b.name}</span>
-                                )}
-                              </td>
-                              <td className="px-3 py-2.5 text-right text-gray-600">{b.matches.size}</td>
-                              <td className="px-3 py-2.5 text-right text-gray-600">{formatOvers(b.overs)}</td>
-                              <td className="px-3 py-2.5 text-right text-gray-600">{b.runs}</td>
-                              <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{b.wickets}</td>
-                              <td className="px-3 py-2.5 text-right text-gray-600">{b.bestWkts}/{b.bestRuns === 999 ? 0 : b.bestRuns}</td>
-                              <td className="px-3 py-2.5 text-right text-gray-600">{fmtBowlAvg(b.runs, b.wickets)}</td>
-                              <td className="px-3 py-2.5 text-right text-gray-600">{fmtEcon(b.runs, b.overs)}</td>
-                              <td className="px-3 py-2.5 text-right text-gray-600">{b.fiveWs}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </details>
-                )}
-              </div>
+              <LeaderboardTable kind="bowlers" rows={bowlers} defaultSortKey="wickets" />
             </section>
           )}
 
-          {/* Section 4: Top Fielders */}
-          {allFielders.length > 0 && (
+          {/* Top Fielders */}
+          {fielders.length > 0 && (
             <section className="mb-10">
               <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">
                 Top Fielders
                 <span className="text-gray-300 font-normal normal-case tracking-normal ml-2">
-                  · {allFielders.length} {allFielders.length === 1 ? 'fielder' : 'fielders'}
+                  · {fielders.length} {fielders.length === 1 ? 'fielder' : 'fielders'} &middot; click any column to sort
                 </span>
               </h2>
-              <div className="rounded-xl border border-gray-100 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-gray-50 text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
-                        <th className="px-3 py-2 text-left w-6">#</th>
-                        <th className="px-3 py-2 text-left">Name</th>
-                        <th className="px-3 py-2 text-right">Catches</th>
-                        <th className="px-3 py-2 text-right">Run-outs</th>
-                        <th className="px-3 py-2 text-right">Stumpings</th>
-                        <th className="px-3 py-2 text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {allFielders.slice(0, 10).map((f, i) => (
-                        <tr key={i} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
-                          <td className="px-3 py-2.5 font-medium text-gray-800">{f.name}</td>
-                          <td className="px-3 py-2.5 text-right text-gray-600">{f.catches}</td>
-                          <td className="px-3 py-2.5 text-right text-gray-600">{f.runOuts}</td>
-                          <td className="px-3 py-2.5 text-right text-gray-600">{f.stumpings}</td>
-                          <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{f.total}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {allFielders.length > 10 && (
-                  <details className="border-t border-gray-100 group">
-                    <summary className="px-3 py-2.5 cursor-pointer text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50/30 transition-colors list-none flex items-center gap-1.5">
-                      <span className="text-gray-300 group-open:rotate-90 transition-transform inline-block w-3">▸</span>
-                      Show all {allFielders.length} fielders
-                    </summary>
-                    <div className="overflow-x-auto border-t border-gray-100">
-                      <table className="w-full text-sm">
-                        <tbody className="divide-y divide-gray-50">
-                          {allFielders.slice(10).map((f, i) => (
-                            <tr key={i + 10} className="hover:bg-gray-50 transition-colors">
-                              <td className="px-3 py-2.5 text-gray-400 text-xs w-6">{i + 11}</td>
-                              <td className="px-3 py-2.5 font-medium text-gray-800">{f.name}</td>
-                              <td className="px-3 py-2.5 text-right text-gray-600">{f.catches}</td>
-                              <td className="px-3 py-2.5 text-right text-gray-600">{f.runOuts}</td>
-                              <td className="px-3 py-2.5 text-right text-gray-600">{f.stumpings}</td>
-                              <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{f.total}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </details>
-                )}
-              </div>
+              <LeaderboardTable kind="fielders" rows={fielders} defaultSortKey="total" />
             </section>
           )}
         </>
