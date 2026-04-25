@@ -11,6 +11,7 @@ type Standing = {
   team_name: string
   club_id: string | null
   club_name: string | null
+  position: number | null
   played: number
   won: number
   lost: number
@@ -38,14 +39,17 @@ export default async function TablePage({
   const sp = await searchParams
   const season = parseInt(sp.season ?? String(new Date().getFullYear()), 10)
 
+  // Fetch in points-desc as a sensible default, but RE-RANK by Play-Cricket's
+  // authoritative position field (set during the league_table.json sync) so
+  // tie-breakers (NRR etc) match the official table.
   const { data: standingsRaw } = await supabase
     .from('league_standings')
     .select(
-      'team_id, team_name, club_id, club_name, played, won, lost, tied, drew, abandoned, cancelled, bonus_batting, bonus_bowling, penalty_points, points'
+      'team_id, team_name, club_id, club_name, played, won, lost, tied, drew, abandoned, cancelled, bonus_batting, bonus_bowling, penalty_points, points, position'
     )
     .eq('season', season)
+    .order('position', { ascending: true, nullsFirst: false })
     .order('points', { ascending: false })
-    .order('won', { ascending: false })
 
   const standings: Standing[] = (standingsRaw ?? []) as Standing[]
   const isEmpty = standings.length === 0
@@ -76,7 +80,7 @@ export default async function TablePage({
             <Link
               key={s}
               href={`/table?season=${s}`}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors no-underline ${
+              className={`px-4 min-h-[44px] inline-flex items-center justify-center rounded-lg text-xs font-semibold transition-colors no-underline ${
                 s === season
                   ? 'bg-emerald-700 text-white'
                   : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
@@ -120,7 +124,9 @@ export default async function TablePage({
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {standings.map((t, i) => {
-                  const pos = i + 1
+                  // Prefer Play-Cricket's authoritative position; fall back to the
+                  // points-desc index for any rows missing it.
+                  const pos = t.position ?? (i + 1)
                   const total = standings.length
                   const isPromotion = pos <= 2
                   const isRelegation = pos >= total - 1

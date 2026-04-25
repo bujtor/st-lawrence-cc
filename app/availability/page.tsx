@@ -13,19 +13,28 @@ export default async function AvailabilityPage({
 }) {
   const params = await searchParams
   const correctPin = process.env.AVAILABILITY_PIN || '1234'
+  const { expectedToken } = await import('@/lib/captain-auth')
 
-  // Check PIN from query param or cookie
+  // Check PIN from query param or signed captain-session cookie
   const pinFromUrl = typeof params.pin === 'string' ? params.pin : undefined
   const cookieStore = await cookies()
-  const pinFromCookie = cookieStore.get('av_pin')?.value
+  const captainCookie = cookieStore.get('captain-session')?.value
+  const expected = expectedToken()
 
-  const authenticated = pinFromUrl === correctPin || pinFromCookie === correctPin
+  // Cookie auth: compare signed token
+  const cookieAuthed = expected !== null && captainCookie === expected
+
+  // URL PIN auth (for WhatsApp link)
+  const pinAuthed = pinFromUrl === correctPin
+
+  const authenticated = pinAuthed || cookieAuthed
 
   if (!authenticated) {
     return <PinGate />
   }
 
-  const needsCookie = pinFromUrl === correctPin && pinFromCookie !== correctPin
+  // If authed via URL PIN but no valid cookie yet, trigger cookie refresh via SetPinCookie
+  const needsCookie = pinAuthed && !cookieAuthed
 
   const season = new Date().getFullYear()
 

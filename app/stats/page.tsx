@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { formatOvers } from '@/lib/play-cricket'
+import { aggregateBatting, aggregateBowling, type BatRow, type BowlRow } from '@/lib/aggregations'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -99,48 +100,7 @@ export default async function StatsPage({
     .eq('season', season)
     .eq('is_our_batsman', true)
 
-  type BatterAgg = {
-    name: string
-    id: number | null
-    matches: Set<number>
-    inns: number
-    notOut: number
-    runs: number
-    hs: number
-    fifties: number
-    hundreds: number
-    totalBalls: number
-  }
-  const batterMap = new Map<string, BatterAgg>()
-
-  for (const row of battingRaw ?? []) {
-    const key = String(row.batsman_id ?? row.batsman_name)
-    if (!batterMap.has(key)) {
-      batterMap.set(key, {
-        name: row.batsman_name ?? '?',
-        id: row.batsman_id ?? null,
-        matches: new Set(),
-        inns: 0,
-        notOut: 0,
-        runs: 0,
-        hs: 0,
-        fifties: 0,
-        hundreds: 0,
-        totalBalls: 0,
-      })
-    }
-    const agg = batterMap.get(key)!
-    agg.matches.add(row.match_id)
-    agg.inns++
-    const r = row.runs ?? 0
-    agg.runs += r
-    if (r > agg.hs) agg.hs = r
-    if (r >= 100) agg.hundreds++
-    else if (r >= 50) agg.fifties++
-    agg.totalBalls += row.balls ?? 0
-    const ho = (row.how_out ?? '').toLowerCase()
-    if (ho === 'not out' || ho === '') agg.notOut++
-  }
+  const batterMap = aggregateBatting((battingRaw ?? []) as BatRow[])
 
   const topBatters = Array.from(batterMap.values())
     .sort((a, b) => b.runs - a.runs)
@@ -153,47 +113,7 @@ export default async function StatsPage({
     .eq('season', season)
     .eq('is_our_bowler', true)
 
-  type BowlerAgg = {
-    name: string
-    id: number | null
-    matches: Set<number>
-    overs: number
-    runs: number
-    wickets: number
-    bestWkts: number
-    bestRuns: number
-    fiveWs: number
-  }
-  const bowlerMap = new Map<string, BowlerAgg>()
-
-  for (const row of bowlingRaw ?? []) {
-    const key = String(row.bowler_id ?? row.bowler_name)
-    if (!bowlerMap.has(key)) {
-      bowlerMap.set(key, {
-        name: row.bowler_name ?? '?',
-        id: row.bowler_id ?? null,
-        matches: new Set(),
-        overs: 0,
-        runs: 0,
-        wickets: 0,
-        bestWkts: 0,
-        bestRuns: 999,
-        fiveWs: 0,
-      })
-    }
-    const agg = bowlerMap.get(key)!
-    agg.matches.add(row.match_id)
-    agg.overs += row.overs ?? 0
-    agg.runs += row.runs ?? 0
-    const w = row.wickets ?? 0
-    agg.wickets += w
-    if (w >= 5) agg.fiveWs++
-    const r = row.runs ?? 0
-    if (w > agg.bestWkts || (w === agg.bestWkts && r < agg.bestRuns)) {
-      agg.bestWkts = w
-      agg.bestRuns = r
-    }
-  }
+  const bowlerMap = aggregateBowling((bowlingRaw ?? []) as BowlRow[])
 
   const topBowlers = Array.from(bowlerMap.values())
     .filter(b => b.wickets > 0)
@@ -246,7 +166,7 @@ export default async function StatsPage({
             <Link
               key={s}
               href={`/stats?season=${s}`}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors no-underline ${
+              className={`px-4 min-h-[44px] inline-flex items-center justify-center rounded-lg text-xs font-semibold transition-colors no-underline ${
                 s === season
                   ? 'bg-emerald-700 text-white'
                   : 'bg-gray-100 text-gray-500 hover:bg-gray-200'

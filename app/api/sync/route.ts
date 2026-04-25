@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { normaliseResult } from '@/lib/result-normalisation'
 import {
   fetchPlayers,
   fetchMatches,
@@ -64,7 +65,9 @@ type FixtureUpsert = {
   last_synced: string
 }
 
-function matchToFixtureRow(m: PCMatch, resultByMatchId: Map<number, PCResult>): FixtureUpsert {
+function matchToFixtureRow(m: PCMatch, resultByMatchId: Map<number, PCResult>): FixtureUpsert | null {
+  const matchDate = parsePCDate(m.match_date)
+  if (!matchDate) return null
   const homeAway: 'H' | 'A' = m.home_club_id === OUR_CLUB_ID ? 'H' : 'A'
   const opponent = homeAway === 'H' ? m.away_club_name : m.home_club_name
   const venue = homeAway === 'H' ? 'St Lawrence CC' : m.ground_name || opponent
@@ -87,7 +90,7 @@ function matchToFixtureRow(m: PCMatch, resultByMatchId: Map<number, PCResult>): 
 
   return {
     play_cricket_match_id: m.id,
-    match_date: parsePCDate(m.match_date),
+    match_date: matchDate,
     start_time: start,
     meet_time: meet,
     opponent,
@@ -196,7 +199,9 @@ async function syncFixtures(season: number) {
   const resultByMatchId = new Map<number, PCResult>()
   for (const r of results) resultByMatchId.set(r.id, r)
 
-  const incoming = matches.map(m => matchToFixtureRow(m, resultByMatchId))
+  const incoming = matches
+    .map(m => matchToFixtureRow(m, resultByMatchId))
+    .filter((r): r is FixtureUpsert => r !== null)
   const incomingIds = new Set(incoming.map(r => r.play_cricket_match_id))
 
   const { data: existing, error: readErr } = await supabase
@@ -253,14 +258,6 @@ async function syncFixtures(season: number) {
 }
 
 const OUR_CLUB_ID_SET = new Set(['9754'])
-
-function normaliseResult(result: string, resultAppliedTo: string, ourTeamId: string): string {
-  if (result === 'W') return resultAppliedTo === ourTeamId ? 'Won' : 'Lost'
-  if (result === 'T') return 'Tied'
-  if (result === 'D') return 'Drew'
-  if (result === 'A') return 'Abandoned'
-  return result
-}
 
 async function syncScorecards(season: number) {
   const supabase = supabaseAdmin()
@@ -653,6 +650,7 @@ async function syncLeagueStandings(season: number) {
     const lcn = getNum(v, 'lcn')
     const bonus_batting = getNum(v, 'batp')
     const bonus_bowling = getNum(v, 'bowlp')
+    const position = parseInt(v.position ?? '', 10)
     return {
       season,
       competition_id: competitionId,
@@ -660,6 +658,7 @@ async function syncLeagueStandings(season: number) {
       team_name: teamName || v.team_id,
       club_id: clubInfo?.club_id ?? null,
       club_name: clubInfo?.club_name ?? null,
+      position: Number.isFinite(position) ? position : null,
       played: getNum(v, 'p'),
       won,
       lost,
@@ -700,10 +699,36 @@ export async function POST(req: NextRequest) {
 
   const url = new URL(req.url)
   const target = url.searchParams.get('target') ?? 'all'
+  const VALID_TARGETS = new Set(['all', 'players', 'fixtures', 'scorecards', 'standings'])
+  if (!VALID_TARGETS.has(target)) {
+    return NextResponse.json(
+      { error: `invalid target '${target}'`, valid: [...VALID_TARGETS] },
+      { status: 400 }
+    )
+  }
   const seasonParam = url.searchParams.get('season')
   const season = seasonParam ? parseInt(seasonParam, 10) : new Date().getFullYear()
+  if (!Number.isFinite(season) || season < 2000 || season > 2100) {
+    return NextResponse.json({ error: `invalid season '${seasonParam}'` }, { status: 400 })
+  }
 
-  const out: Record<string, unknown> = { target, season, started_at: new Date().toISOString() }
+  const startedAt = new Date().toISOString()
+  const out: Record<string, unknown> = { target, season, started_at: startedAt }
+
+  // Create sync_run record
+  // Allow cron handler to override trigger via header
+  const triggerHeader = req.headers.get('x-sync-trigger')
+  const trigger = triggerHeader === 'cron' ? 'cron' : 'manual'
+  const syncDb = supabaseAdmin()
+  const { data: runRow } = await syncDb
+    .from('sync_runs')
+    .insert({ trigger, target, season, status: 'success', started_at: startedAt })
+    .select('id')
+    .single()
+  const runId: number | null = runRow?.id ?? null
+
+  let errorMsg: string | null = null
+  let hasErrors = false
 
   try {
     if (target === 'players' || target === 'all') {
@@ -714,14 +739,36 @@ export async function POST(req: NextRequest) {
     }
     if (target === 'scorecards' || target === 'all') {
       out.scorecards = await syncScorecards(season)
+      const sc = out.scorecards as { error_count?: number } | undefined
+      if (sc && typeof sc.error_count === 'number' && sc.error_count > 0) hasErrors = true
     }
     if (target === 'standings' || target === 'all') {
       out.standings = await syncLeagueStandings(season)
     }
     out.finished_at = new Date().toISOString()
+
+    if (runId) {
+      await syncDb.from('sync_runs').update({
+        finished_at: out.finished_at,
+        status: hasErrors ? 'partial' : 'success',
+        result_summary: out,
+      }).eq('id', runId)
+    }
+
     return NextResponse.json(out)
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    return NextResponse.json({ ...out, error: msg }, { status: 500 })
+    errorMsg = e instanceof Error ? e.message : String(e)
+    out.finished_at = new Date().toISOString()
+
+    if (runId) {
+      await syncDb.from('sync_runs').update({
+        finished_at: out.finished_at,
+        status: 'error',
+        error: errorMsg,
+        result_summary: out,
+      }).eq('id', runId)
+    }
+
+    return NextResponse.json({ ...out, error: errorMsg }, { status: 500 })
   }
 }

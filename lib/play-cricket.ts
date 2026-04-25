@@ -95,9 +95,15 @@ export async function fetchLeagueTable(divisionId: string | number): Promise<PCL
   return json.league_table?.[0] ?? null
 }
 
-// DD/MM/YYYY -> YYYY-MM-DD
-export function parsePCDate(dmy: string): string {
-  const [d, m, y] = dmy.split('/')
+// DD/MM/YYYY -> YYYY-MM-DD. Returns null for empty / malformed input rather than
+// silently producing 'undefined-NaN-NaN' garbage.
+export function parsePCDate(dmy: string | null | undefined): string | null {
+  if (!dmy || typeof dmy !== 'string') return null
+  const parts = dmy.split('/')
+  if (parts.length !== 3) return null
+  const [d, m, y] = parts
+  if (!d || !m || !y) return null
+  if (!/^\d{1,2}$/.test(d) || !/^\d{1,2}$/.test(m) || !/^\d{4}$/.test(y)) return null
   return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
 }
 

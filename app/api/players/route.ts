@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { isCaptainAuthed } from '@/lib/captain-auth'
 
 // GET /api/players
 export async function GET() {
+  if (!(await isCaptainAuthed())) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
+
   const supabase = supabaseAdmin()
   const { data, error } = await supabase
     .from('players')
@@ -20,6 +25,10 @@ export async function GET() {
 
 // POST /api/players — add a new player (typically a ring-in)
 export async function POST(request: NextRequest) {
+  if (!(await isCaptainAuthed())) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
+
   const body = await request.json()
   const { name, role, is_ringin = true } = body
 
@@ -43,6 +52,10 @@ export async function POST(request: NextRequest) {
 
 // PATCH /api/players — update player (promote/demote/deactivate)
 export async function PATCH(request: NextRequest) {
+  if (!(await isCaptainAuthed())) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
+
   const body = await request.json()
   const { id, ...updates } = body
 
@@ -67,6 +80,10 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE /api/players?id=N
 export async function DELETE(request: NextRequest) {
+  if (!(await isCaptainAuthed())) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
+
   const id = request.nextUrl.searchParams.get('id')
 
   if (!id) {

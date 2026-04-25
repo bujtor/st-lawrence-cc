@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { isCaptainAuthed } from '@/lib/captain-auth'
 
 // GET /api/availability?season=2026
 export async function GET(request: NextRequest) {
+  if (!(await isCaptainAuthed())) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
+
   const season = request.nextUrl.searchParams.get('season') || new Date().getFullYear().toString()
   const supabase = supabaseAdmin()
 
@@ -28,6 +33,10 @@ export async function GET(request: NextRequest) {
 
 // POST /api/availability — upsert a single availability record
 export async function POST(request: NextRequest) {
+  if (!(await isCaptainAuthed())) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
+
   const body = await request.json()
   const { player_id, fixture_id, status, selected } = body
 

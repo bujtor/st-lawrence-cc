@@ -36,31 +36,34 @@ export default async function PlayerPage({
   const memberId = parseInt(id, 10)
   if (isNaN(memberId)) notFound()
 
-  // Resolve player
+  // Resolve player from our roster first (preferred — gives canonical name).
   const { data: playerRows } = await supabase
     .from('players')
     .select('name, play_cricket_member_id')
     .eq('play_cricket_member_id', memberId)
     .limit(1)
 
-  const player = playerRows?.[0]
-  if (!player) notFound()
-
-  // All batting entries for this player, with match info
+  // All batting / bowling entries (only ours — career = innings for SLCC).
   const { data: battingAll } = await supabase
     .from('batting_entries')
-    .select('match_id, season, runs, balls, how_out, bowler_name, innings_number')
+    .select('match_id, season, runs, balls, how_out, bowler_name, batsman_name, innings_number')
     .eq('batsman_id', memberId)
     .eq('is_our_batsman', true)
     .order('match_id', { ascending: false })
 
-  // All bowling entries for this player
   const { data: bowlingAll } = await supabase
     .from('bowling_entries')
-    .select('match_id, season, overs, runs, wickets, maidens, innings_number')
+    .select('match_id, season, overs, runs, wickets, maidens, bowler_name, innings_number')
     .eq('bowler_id', memberId)
     .eq('is_our_bowler', true)
     .order('match_id', { ascending: false })
+
+  // Fall back to a name from the scorecard entries if the player isn't in our roster
+  // table yet (scorecard sync can land before players sync re-runs).
+  const player = playerRows?.[0]
+    ?? (battingAll?.[0] ? { name: battingAll[0].batsman_name ?? '?', play_cricket_member_id: memberId } : null)
+    ?? (bowlingAll?.[0] ? { name: bowlingAll[0].bowler_name ?? '?', play_cricket_member_id: memberId } : null)
+  if (!player) notFound()
 
   // Scorecards for match date + opponent
   const allMatchIds = [
@@ -140,6 +143,20 @@ export default async function PlayerPage({
     const s = row.season
     if (!batBySeason.has(s)) batBySeason.set(s, { inns: 0, notOut: 0, runs: 0, hs: 0, fifties: 0, hundreds: 0, rows: [] })
     const agg = batBySeason.get(s)!
+
+    // Always include the row in the expandable list (the user wants to see DNBs too)
+    agg.rows.push({
+      match_id: row.match_id,
+      runs: row.runs,
+      balls: row.balls,
+      how_out: row.how_out,
+      bowler_name: row.bowler_name,
+    })
+
+    // But skip DNBs from the actual batting aggregations
+    const ho = (row.how_out ?? '').toLowerCase()
+    if (!ho || ho === 'did not bat') continue
+
     agg.inns++
     careerInns++
     const r = row.runs ?? 0
@@ -149,15 +166,7 @@ export default async function PlayerPage({
     if (r > careerHS) careerHS = r
     if (r >= 100) { agg.hundreds++; career100s++ }
     else if (r >= 50) { agg.fifties++; career50s++ }
-    const ho = (row.how_out ?? '').toLowerCase()
-    if (ho === 'not out' || ho === '') { agg.notOut++; careerNO++ }
-    agg.rows.push({
-      match_id: row.match_id,
-      runs: row.runs,
-      balls: row.balls,
-      how_out: row.how_out,
-      bowler_name: row.bowler_name,
-    })
+    if (ho === 'not out') { agg.notOut++; careerNO++ }
   }
 
   // Aggregate by season - bowling (plus per-season rows)

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
+import { todayLondon, londonWallTimeToUtc } from '@/lib/london-time'
 
 const sponsors = [
   { name: 'Mount Vineyard', file: 'mount-vineyard.png' },
@@ -19,6 +20,11 @@ function formatDate(dateStr: string) {
   return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`
 }
 
+function formatMeetTime(t: string | null | undefined): string {
+  if (!t) return ''
+  return t.slice(0, 5)
+}
+
 const heroImages = [
   '/images/gallery/hero-ground.jpg',
   '/images/gallery/hero-batting-hedge.jpg',
@@ -28,18 +34,36 @@ const heroImages = [
 
 export const dynamic = 'force-dynamic'
 
+type FixtureRow = {
+  id: number
+  match_date: string
+  opponent: string
+  venue: string
+  home_away: string
+  start_time: string | null
+  meet_time: string | null
+  result_text: string | null
+  season: number
+  play_cricket_match_id: number | null
+  competition: string | null
+}
+
 export default async function Home() {
   const heroImage = heroImages[Math.floor(Math.random() * heroImages.length)]
-  const today = new Date().toISOString().split('T')[0]
-  const { data: nextFixtures } = await supabase
+  const today = todayLondon()
+
+  // Get today's fixtures + next upcoming
+  const { data: upcomingFixtures } = await supabase
     .from('fixtures')
     .select('*')
     .gte('match_date', today)
     .order('match_date', { ascending: true })
-    .limit(1)
+    .limit(3)
 
-  const nextFixture = nextFixtures?.[0]
+  const todayFixture = (upcomingFixtures ?? []).find((f: FixtureRow) => f.match_date === today) as FixtureRow | undefined
+  const nextFixture = (upcomingFixtures ?? []).find((f: FixtureRow) => f.match_date > today) as FixtureRow | undefined
 
+  // Last result
   const { data: lastResults } = await supabase
     .from('fixtures')
     .select('*')
@@ -47,8 +71,67 @@ export default async function Home() {
     .not('result_text', 'is', null)
     .order('match_date', { ascending: false })
     .limit(1)
+  const lastResult = lastResults?.[0] as FixtureRow | undefined
 
-  const lastResult = lastResults?.[0]
+  // Determine match state
+  let matchState: 'live' | 'today-result' | 'upcoming' | 'none' = 'none'
+  let displayFixture: FixtureRow | undefined
+
+  if (todayFixture) {
+    if (todayFixture.result_text) {
+      matchState = 'today-result'
+      displayFixture = todayFixture
+    } else if (todayFixture.start_time) {
+      // Check if live (between start_time and ~23:30 London)
+      const nowMs = new Date().getTime()
+      const startUtc = londonWallTimeToUtc(today, todayFixture.start_time)
+      const endUtc = londonWallTimeToUtc(today, '23:30:00')
+      if (startUtc != null && endUtc != null && nowMs >= startUtc && nowMs <= endUtc) {
+        matchState = 'live'
+      } else {
+        matchState = 'upcoming'
+      }
+      displayFixture = todayFixture
+    } else {
+      matchState = 'upcoming'
+      displayFixture = todayFixture
+    }
+  } else if (nextFixture) {
+    matchState = 'upcoming'
+    displayFixture = nextFixture
+  }
+
+  // H2H for the display fixture (last 5 results vs them)
+  let h2hWon = 0, h2hPlayed = 0
+  let h2hLast3: string[] = []
+  if (displayFixture) {
+    const opponent = displayFixture.opponent
+    const { data: priorFixtures } = await supabase
+      .from('fixtures')
+      .select('play_cricket_match_id')
+      .eq('opponent', opponent)
+      .not('play_cricket_match_id', 'is', null)
+
+    const priorMatchIds = (priorFixtures ?? [])
+      .map((f: { play_cricket_match_id: number | null }) => f.play_cricket_match_id)
+      .filter((x: number | null): x is number => typeof x === 'number')
+
+    if (priorMatchIds.length > 0) {
+      const { data: h2hMatches } = await supabase
+        .from('match_scorecards')
+        .select('match_id, result_text')
+        .in('match_id', priorMatchIds)
+        .order('match_id', { ascending: false })
+        .limit(5)
+
+      for (const sc of h2hMatches ?? []) {
+        h2hPlayed++
+        if (sc.result_text === 'Won') h2hWon++
+        // (h2hLost not tracked — only won count displayed)
+      }
+      h2hLast3 = (h2hMatches ?? []).slice(0, 3).map((sc: { result_text: string | null }) => sc.result_text ?? 'Unknown')
+    }
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -78,38 +161,130 @@ export default async function Home() {
               <p className="text-white/40 text-xs mt-0.5">Kent County Village League &middot; Est. 1877</p>
             </div>
 
-            {/* Next match + last result - right side overlay */}
+            {/* Match-day widget — right side overlay */}
             <div className="flex flex-col gap-2.5 w-full md:w-auto md:max-w-xs">
-              {nextFixture && (
-                <Link href="/fixtures" className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 no-underline hover:bg-white/15 transition-colors">
-                  <div className="text-[10px] text-emerald-400 font-semibold uppercase tracking-widest mb-1.5">Next Match</div>
+
+              {/* LIVE MATCH */}
+              {matchState === 'live' && displayFixture && (
+                <div className="bg-black/40 backdrop-blur-md rounded-xl p-4 border border-red-500/60">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <div className="text-[10px] text-red-400 font-bold uppercase tracking-widest">Match in Progress</div>
+                  </div>
+                  <div className="text-base font-bold text-white">vs {displayFixture.opponent}</div>
+                  <div className="text-xs text-white/60 mt-0.5">{displayFixture.venue}</div>
+                  {displayFixture.play_cricket_match_id && (
+                    <a
+                      href={`https://stlawrence.play-cricket.com/website/results/${displayFixture.play_cricket_match_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block mt-2 text-[10px] text-emerald-400 font-semibold no-underline hover:text-emerald-300"
+                    >
+                      Watch on Play-Cricket →
+                    </a>
+                  )}
+                  {h2hPlayed > 0 && (
+                    <div className="mt-2.5 pt-2 border-t border-white/10">
+                      <div className="text-[9px] text-white/40 uppercase tracking-wider mb-1">Last 3 H2H</div>
+                      <div className="flex gap-1">
+                        {h2hLast3.map((r, i) => (
+                          <span
+                            key={i}
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              r === 'Won' ? 'bg-emerald-500/30 text-emerald-300'
+                              : r === 'Lost' ? 'bg-rose-500/30 text-rose-300'
+                              : 'bg-white/10 text-white/50'
+                            }`}
+                          >
+                            {r === 'Won' ? 'W' : r === 'Lost' ? 'L' : r === 'Drew' ? 'D' : 'A'}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TODAY'S RESULT */}
+              {matchState === 'today-result' && displayFixture && (
+                <Link
+                  href={`/fixtures/${displayFixture.id}`}
+                  className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 no-underline hover:bg-white/15 transition-colors"
+                >
+                  <div className="text-[10px] text-emerald-400 font-semibold uppercase tracking-widest mb-1.5">
+                    {"Today's Result"}
+                  </div>
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <div className="text-base font-bold text-white">vs {nextFixture.opponent}</div>
-                      <div className="text-xs text-white/60 mt-0.5">{formatDate(nextFixture.match_date)} &middot; {nextFixture.venue}</div>
+                      <div className="text-base font-bold text-white">vs {displayFixture.opponent}</div>
+                      <div className="text-xs text-white/60 mt-0.5">{displayFixture.venue}</div>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                        nextFixture.home_away === 'H' ? 'bg-emerald-500/30 text-emerald-300' : 'bg-sky-500/30 text-sky-300'
-                      }`}>
-                        {nextFixture.home_away === 'H' ? 'Home' : 'Away'}
-                      </span>
-                      <div className="text-lg font-bold text-white mt-1">{nextFixture.start_time?.slice(0, 5)}</div>
+                    <div className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
+                      displayFixture.result_text === 'Won' ? 'bg-emerald-500/30 text-emerald-300'
+                      : displayFixture.result_text === 'Lost' ? 'bg-rose-500/30 text-rose-300'
+                      : 'bg-white/20 text-white/70'
+                    }`}>
+                      {displayFixture.result_text}
                     </div>
                   </div>
                 </Link>
               )}
-              {lastResult && (
+
+              {/* UPCOMING MATCH */}
+              {matchState === 'upcoming' && displayFixture && (
+                <Link href="/fixtures" className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 no-underline hover:bg-white/15 transition-colors">
+                  <div className="text-[10px] text-emerald-400 font-semibold uppercase tracking-widest mb-1.5">
+                    {displayFixture.match_date === today ? 'Today' : 'Next Match'}
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-base font-bold text-white">vs {displayFixture.opponent}</div>
+                      <div className="text-xs text-white/60 mt-0.5">
+                        {displayFixture.match_date !== today && `${formatDate(displayFixture.match_date)} · `}
+                        {displayFixture.venue}
+                      </div>
+                      {displayFixture.meet_time && (
+                        <div className="text-xs text-white/40 mt-0.5">
+                          Meet {formatMeetTime(displayFixture.meet_time)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                        displayFixture.home_away === 'H' ? 'bg-emerald-500/30 text-emerald-300' : 'bg-sky-500/30 text-sky-300'
+                      }`}>
+                        {displayFixture.home_away === 'H' ? 'Home' : 'Away'}
+                      </span>
+                      <div className="text-lg font-bold text-white mt-1">{displayFixture.start_time?.slice(0, 5)}</div>
+                    </div>
+                  </div>
+                  {h2hPlayed > 0 && (
+                    <div className="mt-2.5 pt-2 border-t border-white/10 text-[10px] text-white/40">
+                      Won {h2hWon} of last {h2hPlayed} vs them
+                    </div>
+                  )}
+                </Link>
+              )}
+
+              {/* LAST RESULT (only when no today fixture) */}
+              {matchState !== 'today-result' && matchState !== 'live' && lastResult && (
                 <div className="bg-white/10 backdrop-blur-md rounded-xl px-4 py-3 border border-white/20">
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <div className="text-[10px] text-white/40 font-semibold uppercase tracking-widest">Last Result</div>
                       <div className="text-sm font-semibold text-white mt-0.5">vs {lastResult.opponent}</div>
                     </div>
-                    <div className="text-xs font-medium text-emerald-400 text-right">{lastResult.result_text}</div>
+                    <div className={`text-xs font-medium text-right ${
+                      lastResult.result_text === 'Won' ? 'text-emerald-400'
+                      : lastResult.result_text === 'Lost' ? 'text-rose-400'
+                      : 'text-white/50'
+                    }`}>
+                      {lastResult.result_text}
+                    </div>
                   </div>
                 </div>
               )}
+
             </div>
           </div>
         </div>
@@ -199,6 +374,10 @@ export default async function Home() {
             <div className="text-sm font-semibold text-gray-800 group-hover:text-emerald-700 transition-colors">About</div>
             <div className="text-xs text-gray-400 mt-1">Ground & contact</div>
           </Link>
+          <Link href="/clubs" className="group bg-gray-50 hover:bg-emerald-50 rounded-xl p-5 border border-gray-100 hover:border-emerald-200 no-underline transition-all text-center col-span-2 md:col-span-1">
+            <div className="text-sm font-semibold text-gray-800 group-hover:text-emerald-700 transition-colors">Opponents</div>
+            <div className="text-xs text-gray-400 mt-1">H2H records</div>
+          </Link>
         </div>
       </div>
 
@@ -226,3 +405,5 @@ export default async function Home() {
     </div>
   )
 }
+
+

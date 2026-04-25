@@ -52,7 +52,7 @@ export default function FixtureList({
             <Link
               key={s}
               href={`/fixtures?season=${s}`}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors no-underline ${
+              className={`px-4 min-h-[44px] inline-flex items-center justify-center rounded-lg text-xs font-semibold transition-colors no-underline ${
                 s === season
                   ? 'bg-emerald-700 text-white'
                   : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
@@ -69,7 +69,7 @@ export default function FixtureList({
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            className={`px-4 min-h-[44px] inline-flex items-center justify-center rounded-lg text-xs font-semibold transition-colors ${
               filter === f
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                 : 'text-gray-400 hover:text-gray-600 border border-transparent'

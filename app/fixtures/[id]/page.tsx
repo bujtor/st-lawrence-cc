@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import type { Metadata } from 'next'
 import { supabase } from '@/lib/supabase'
+import { clubSlug } from '@/lib/slug'
 import ScorecardTabs, { type InningsView, type ScBat, type ScBowl } from '@/components/ScorecardTabs'
 
 export const dynamic = 'force-dynamic'
@@ -12,6 +14,53 @@ function fmtFullDate(d: string) {
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
   return `${days[dt.getDay()]} ${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()}`
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
+  const fixtureId = parseInt(id, 10)
+  if (isNaN(fixtureId)) return {}
+
+  const { data: fixture } = await supabase
+    .from('fixtures')
+    .select('opponent, match_date, result_text, competition')
+    .eq('id', fixtureId)
+    .single()
+
+  if (!fixture) return {}
+
+  const dateStr = fixture.match_date
+    ? new Date(fixture.match_date + 'T00:00:00').toLocaleDateString('en-GB', {
+        day: 'numeric', month: 'long', year: 'numeric',
+      })
+    : ''
+
+  const title = fixture.result_text
+    ? `St Lawrence CC vs ${fixture.opponent} — ${fixture.result_text} · ${dateStr}`
+    : `St Lawrence CC vs ${fixture.opponent} · ${dateStr}`
+
+  const description = fixture.result_text
+    ? `Match scorecard: St Lawrence CC vs ${fixture.opponent} on ${dateStr}. Result: ${fixture.result_text}.${fixture.competition ? ` ${fixture.competition}.` : ''}`
+    : `Upcoming fixture: St Lawrence CC vs ${fixture.opponent} on ${dateStr}.${fixture.competition ? ` ${fixture.competition}.` : ''}`
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+    },
+  }
 }
 
 export default async function ScorecardPage({
@@ -223,6 +272,12 @@ export default async function ScorecardPage({
               {fixture.home_away === 'H' ? 'Home' : 'Away'}
             </span>
             {fixture.competition && <span className="text-xs text-gray-400">{fixture.competition}</span>}
+            <Link
+              href={`/clubs/${clubSlug(fixture.opponent)}`}
+              className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold no-underline transition-colors"
+            >
+              All results vs {fixture.opponent} →
+            </Link>
           </div>
         </div>
         {fixture.result_text && (

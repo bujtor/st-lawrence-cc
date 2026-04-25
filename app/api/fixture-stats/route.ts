@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { todayLondon, londonWallTimeToUtc } from '@/lib/london-time'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -9,17 +10,21 @@ function isLiveMatch(fixture: {
   result_text: string | null
   start_time: string | null
 }): boolean {
-  const today = new Date().toISOString().split('T')[0]
-  const now = new Date()
-
-  if (fixture.match_date !== today) return false
   if (fixture.result_text) return false
   if (!fixture.start_time) return false
 
-  const startTime = new Date(`${fixture.match_date}T${fixture.start_time}`)
-  const endOfMatchWindow = new Date(`${fixture.match_date}T23:30:00`)
+  // Use Europe/London for the match-day comparison. KCVL matches happen in
+  // BST/GMT — server UTC date can flip mid-evening UK time and falsely flag
+  // a match as "not today".
+  if (fixture.match_date !== todayLondon()) return false
 
-  return now >= startTime && now <= endOfMatchWindow
+  const now = Date.now()
+  // Treat fixture.match_date + start_time as a London wall-clock time. We don't
+  // need millisecond accuracy — just a lower-bound and a generous end-of-day cap.
+  const startUtc = londonWallTimeToUtc(fixture.match_date, fixture.start_time)
+  const endUtc = londonWallTimeToUtc(fixture.match_date, '23:30:00')
+  if (startUtc == null || endUtc == null) return false
+  return now >= startUtc && now <= endUtc
 }
 
 export async function GET(req: NextRequest) {
