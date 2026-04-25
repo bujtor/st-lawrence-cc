@@ -3,7 +3,10 @@ import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
-const SEASONS = [2023, 2024, 2025, 2026]
+// All seasons for which we have league data (2008+). 2007 and earlier are sparse.
+const ALL_SEASONS = Array.from({ length: 2026 - 2008 + 1 }, (_, i) => 2008 + i)
+const RECENT_SEASONS = ALL_SEASONS.slice(-4)
+const OLDER_SEASONS = ALL_SEASONS.slice(0, -4).slice().reverse()
 const OUR_CLUB_ID = '9754'
 
 type Standing = {
@@ -75,8 +78,8 @@ export default async function TablePage({
             {divisionName ?? 'Kent County Village League'} &middot; {season} Season
           </p>
         </div>
-        <div className="flex gap-1.5">
-          {SEASONS.map((s) => (
+        <div className="flex flex-wrap gap-1.5 items-center">
+          {RECENT_SEASONS.map((s) => (
             <Link
               key={s}
               href={`/table?season=${s}`}
@@ -89,6 +92,24 @@ export default async function TablePage({
               {s}
             </Link>
           ))}
+          <details className="relative">
+            <summary className="px-4 min-h-[44px] inline-flex items-center justify-center rounded-lg text-xs font-semibold transition-colors no-underline bg-gray-100 text-gray-500 hover:bg-gray-200 cursor-pointer list-none">
+              Older ▾
+            </summary>
+            <div className="absolute right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-10 grid grid-cols-3 gap-1 min-w-[200px]">
+              {OLDER_SEASONS.map((s) => (
+                <Link
+                  key={s}
+                  href={`/table?season=${s}`}
+                  className={`px-3 py-2 rounded text-xs font-semibold no-underline text-center transition-colors ${
+                    s === season ? 'bg-emerald-700 text-white' : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {s}
+                </Link>
+              ))}
+            </div>
+          </details>
         </div>
       </div>
 

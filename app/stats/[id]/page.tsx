@@ -44,12 +44,14 @@ export default async function PlayerPage({
     .limit(1)
 
   // All batting / bowling entries (only ours — career = innings for SLCC).
+  // Bump limit well above default for prolific career players over many seasons.
   const { data: battingAll } = await supabase
     .from('batting_entries')
     .select('match_id, season, runs, balls, how_out, bowler_name, batsman_name, innings_number')
     .eq('batsman_id', memberId)
     .eq('is_our_batsman', true)
     .order('match_id', { ascending: false })
+    .limit(2000)
 
   const { data: bowlingAll } = await supabase
     .from('bowling_entries')
@@ -57,6 +59,7 @@ export default async function PlayerPage({
     .eq('bowler_id', memberId)
     .eq('is_our_bowler', true)
     .order('match_id', { ascending: false })
+    .limit(2000)
 
   // Fall back to a name from the scorecard entries if the player isn't in our roster
   // table yet (scorecard sync can land before players sync re-runs).
@@ -209,6 +212,7 @@ export default async function PlayerPage({
     .select('how_out')
     .eq('fielder_id', memberId)
     .eq('is_our_fielder', true)
+    .limit(2000)
 
   let catches = 0, runOuts = 0, stumpings = 0
   for (const f of fieldingCareer ?? []) {
