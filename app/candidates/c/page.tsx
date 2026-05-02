@@ -18,7 +18,6 @@ const mono = 'var(--font-jetbrains), ui-monospace, monospace'
 
 const sponsors = [
   { name: 'Mount Vineyard', file: 'mount-vineyard.png' },
-  { name: 'Chapmans',       file: 'chapmans.png' },
   { name: 'Barber Jack',    file: 'barber-jack.png' },
   { name: 'JML',            file: 'jml.jpeg' },
   { name: 'Regal Point',    file: 'regal-point.jpg' },

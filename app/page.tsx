@@ -7,12 +7,13 @@ import RecentFormStrip from '@/components/RecentFormStrip'
 
 const sponsors = [
   { name: 'Mount Vineyard', file: 'mount-vineyard.png' },
-  { name: 'Chapmans', file: 'chapmans.png' },
   { name: 'Barber Jack', file: 'barber-jack.png' },
   { name: 'JML', file: 'jml.jpeg' },
   { name: 'Regal Point', file: 'regal-point.jpg' },
   { name: 'Gulliver', file: 'gulliver.png' },
   { name: 'Savills', file: 'savills.png' },
+  // Harding Motors logo pending — paid sponsor, name-only chip until logo arrives
+  { name: 'Harding Motors', file: null },
 ]
 
 function formatDate(dateStr: string) {
@@ -311,13 +312,19 @@ export default async function Home() {
           <div className="flex flex-wrap justify-center items-center gap-6 md:gap-10">
             {sponsors.map((s) => (
               <div key={s.name} className="grayscale hover:grayscale-0 opacity-50 hover:opacity-100 transition-all">
-                <Image
-                  src={`/images/sponsors/${s.file}`}
-                  alt={s.name}
-                  width={100}
-                  height={50}
-                  className="object-contain max-h-[32px] w-auto"
-                />
+                {s.file ? (
+                  <Image
+                    src={`/images/sponsors/${s.file}`}
+                    alt={s.name}
+                    width={100}
+                    height={50}
+                    className="object-contain max-h-[32px] w-auto"
+                  />
+                ) : (
+                  <span className="text-sm font-semibold tracking-wide text-gray-700">
+                    {s.name}
+                  </span>
+                )}
               </div>
             ))}
           </div>
