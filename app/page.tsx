@@ -6,7 +6,6 @@ import { fetchRecentForm } from '@/lib/recent-form'
 import RecentFormStrip from '@/components/RecentFormStrip'
 
 const sponsors = [
-  { name: 'Mount Vineyard', file: 'mount-vineyard.png' },
   { name: 'Barber Jack', file: 'barber-jack.png' },
   { name: 'JML', file: 'jml.jpeg' },
   { name: 'Regal Point', file: 'regal-point.jpg' },
