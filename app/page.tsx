@@ -2,6 +2,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { todayLondon, londonWallTimeToUtc } from '@/lib/london-time'
+import { fetchRecentForm } from '@/lib/recent-form'
+import RecentFormStrip from '@/components/RecentFormStrip'
 
 const sponsors = [
   { name: 'Mount Vineyard', file: 'mount-vineyard.png' },
@@ -132,6 +134,9 @@ export default async function Home() {
       h2hLast3 = (h2hMatches ?? []).slice(0, 3).map((sc: { result_text: string | null }) => sc.result_text ?? 'Unknown')
     }
   }
+
+  // Overall recent form — last 5 completed matches, regardless of opponent.
+  const recentForm = await fetchRecentForm(5)
 
   return (
     <div className="min-h-screen bg-white">
@@ -268,7 +273,10 @@ export default async function Home() {
 
               {/* LAST RESULT (only when no today fixture) */}
               {matchState !== 'today-result' && matchState !== 'live' && lastResult && (
-                <div className="bg-white/10 backdrop-blur-md rounded-xl px-4 py-3 border border-white/20">
+                <Link
+                  href={`/fixtures/${lastResult.id}`}
+                  className="bg-white/10 backdrop-blur-md rounded-xl px-4 py-3 border border-white/20 no-underline hover:bg-white/15 transition-colors"
+                >
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <div className="text-[10px] text-white/40 font-semibold uppercase tracking-widest">Last Result</div>
@@ -282,6 +290,13 @@ export default async function Home() {
                       {lastResult.result_text}
                     </div>
                   </div>
+                </Link>
+              )}
+
+              {/* RECENT FORM strip — overall last 5, each clickable */}
+              {recentForm.length > 0 && (
+                <div className="bg-black/30 backdrop-blur-md rounded-xl px-3 py-2.5 border border-white/15">
+                  <RecentFormStrip results={recentForm} variant="dark" label="Recent form" />
                 </div>
               )}
 

@@ -3,7 +3,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import type { Fixture } from '@/lib/supabase'
+import type { RecentFormEntry } from '@/lib/recent-form'
 import FixtureDetail from './FixtureDetail'
+import RecentFormStrip from './RecentFormStrip'
 
 const ALL_SEASONS = Array.from({ length: 2026 - 2008 + 1 }, (_, i) => 2008 + i)
 const RECENT_SEASONS = ALL_SEASONS.slice(-4)
@@ -24,10 +26,12 @@ export default function FixtureList({
   fixtures,
   season,
   scorecardIds = [],
+  recentForm = [],
 }: {
   fixtures: Fixture[]
   season: number
   scorecardIds?: number[]
+  recentForm?: RecentFormEntry[]
 }) {
   const [selected, setSelected] = useState<Fixture | null>(null)
   const [filter, setFilter] = useState<'all' | 'home' | 'away'>('all')
@@ -99,6 +103,13 @@ export default function FixtureList({
           </button>
         ))}
       </div>
+
+      {/* Recent form strip — overall last 5 results across all seasons */}
+      {recentForm.length > 0 && (
+        <div className="mb-6 px-4 py-3 bg-gray-50 rounded-xl border border-gray-100">
+          <RecentFormStrip results={recentForm} variant="light" label="Recent form" />
+        </div>
+      )}
 
       {/* Upcoming */}
       {upcoming.length > 0 && (
