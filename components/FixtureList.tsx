@@ -27,11 +27,13 @@ export default function FixtureList({
   season,
   scorecardIds = [],
   recentForm = [],
+  formByOpponent = {},
 }: {
   fixtures: Fixture[]
   season: number
   scorecardIds?: number[]
   recentForm?: RecentFormEntry[]
+  formByOpponent?: Record<string, RecentFormEntry[]>
 }) {
   const [selected, setSelected] = useState<Fixture | null>(null)
   const [filter, setFilter] = useState<'all' | 'home' | 'away'>('all')
@@ -104,10 +106,10 @@ export default function FixtureList({
         ))}
       </div>
 
-      {/* Recent form strip — overall last 5 results across all seasons */}
+      {/* Overall recent form strip — clearly labelled */}
       {recentForm.length > 0 && (
         <div className="mb-6 px-4 py-3 bg-gray-50 rounded-xl border border-gray-100">
-          <RecentFormStrip results={recentForm} variant="light" label="Recent form" />
+          <RecentFormStrip results={recentForm} variant="light" label="Overall · last 5" />
         </div>
       )}
 
@@ -116,43 +118,55 @@ export default function FixtureList({
         <div className="mb-8">
           <div className="text-[10px] text-emerald-600 font-semibold uppercase tracking-widest mb-3">Upcoming</div>
           <div className="space-y-2">
-            {upcoming.map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setSelected(f)}
-                className="w-full flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-100 hover:border-emerald-200 hover:shadow-sm transition-all text-left group"
-              >
-                <div className="text-center min-w-[56px]">
-                  <div className="text-xs font-bold text-gray-700">{formatDate(f.match_date)}</div>
-                  <div className={`text-[10px] font-bold mt-0.5 ${f.home_away === 'H' ? 'text-emerald-600' : 'text-sky-600'}`}>
-                    {f.home_away === 'H' ? 'HOME' : 'AWAY'}
+            {upcoming.map((f) => {
+              const h2hForm = formByOpponent[f.opponent] ?? []
+              return (
+                <div
+                  key={f.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelected(f)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected(f) } }}
+                  className="w-full flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-100 hover:border-emerald-200 hover:shadow-sm transition-all text-left group cursor-pointer"
+                >
+                  <div className="text-center min-w-[56px]">
+                    <div className="text-xs font-bold text-gray-700">{formatDate(f.match_date)}</div>
+                    <div className={`text-[10px] font-bold mt-0.5 ${f.home_away === 'H' ? 'text-emerald-600' : 'text-sky-600'}`}>
+                      {f.home_away === 'H' ? 'HOME' : 'AWAY'}
+                    </div>
                   </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-gray-800 group-hover:text-emerald-700 transition-colors">
-                    vs {f.opponent}
-                  </div>
-                  <div className="text-xs text-gray-400 truncate flex items-center gap-1">
-                    {f.venue}
-                    {f.lat && f.lng && (
-                      <svg className="w-3 h-3 text-gray-300 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-gray-800 group-hover:text-emerald-700 transition-colors">
+                      vs {f.opponent}
+                    </div>
+                    <div className="text-xs text-gray-400 truncate flex items-center gap-1">
+                      {f.venue}
+                      {f.lat && f.lng && (
+                        <svg className="w-3 h-3 text-gray-300 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      )}
+                    </div>
+                    {/* Per-opponent form chips: last up-to-5 results vs them. Hidden when we have no history. */}
+                    {h2hForm.length > 0 && (
+                      <div className="mt-1.5">
+                        <RecentFormStrip results={h2hForm} variant="light" label="vs them" oldestFirst size="sm" />
+                      </div>
                     )}
                   </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-sm font-semibold text-gray-700">{f.start_time?.slice(0, 5)}</div>
+                    {f.meet_time && (
+                      <div className="text-[10px] text-gray-400">Meet {f.meet_time.slice(0, 5)}</div>
+                    )}
+                  </div>
+                  <svg className="w-4 h-4 text-gray-300 group-hover:text-emerald-500 flex-shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <div className="text-sm font-semibold text-gray-700">{f.start_time?.slice(0, 5)}</div>
-                  {f.meet_time && (
-                    <div className="text-[10px] text-gray-400">Meet {f.meet_time.slice(0, 5)}</div>
-                  )}
-                </div>
-                <svg className="w-4 h-4 text-gray-300 group-hover:text-emerald-500 flex-shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import FixtureList from '@/components/FixtureList'
-import { fetchRecentForm } from '@/lib/recent-form'
+import { fetchRecentForm, fetchFormByOpponent } from '@/lib/recent-form'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,6 +28,8 @@ export default async function FixturesPage({
 
   // Overall last 5 results across all seasons — header strip on the list.
   const recentForm = await fetchRecentForm(5)
+  // Per-opponent form for chips on each upcoming row.
+  const formByOpponent = await fetchFormByOpponent(5)
 
   return (
     <FixtureList
@@ -35,6 +37,7 @@ export default async function FixturesPage({
       season={season}
       scorecardIds={Array.from(scorecardIds)}
       recentForm={recentForm}
+      formByOpponent={formByOpponent}
     />
   )
 }

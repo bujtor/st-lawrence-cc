@@ -296,7 +296,7 @@ export default async function Home() {
               {/* RECENT FORM strip — overall last 5, each clickable */}
               {recentForm.length > 0 && (
                 <div className="bg-black/30 backdrop-blur-md rounded-xl px-3 py-2.5 border border-white/15">
-                  <RecentFormStrip results={recentForm} variant="dark" label="Recent form" />
+                  <RecentFormStrip results={recentForm} variant="dark" label="Overall · last 5" />
                 </div>
               )}
 
