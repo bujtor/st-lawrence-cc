@@ -152,8 +152,14 @@ export default async function TablePage({
                   const isPromotion = pos <= 2
                   const isRelegation = pos >= total - 1
                   const isOurs = t.club_id === OUR_CLUB_ID
+                  // Play-Cricket sometimes returns club_name == team_name (single-XI clubs);
+                  // only prefix when the team name isn't already the club name (e.g. "1st XI").
+                  const teamLabel = (t.team_name ?? '').trim()
+                  const clubLabel = (t.club_name ?? '').trim()
                   const fullName =
-                    t.club_name && t.team_name ? `${t.club_name} - ${t.team_name}` : (t.team_name || t.club_name || '?')
+                    !clubLabel || !teamLabel || teamLabel.toLowerCase().includes(clubLabel.toLowerCase())
+                      ? (teamLabel || clubLabel || '?')
+                      : `${clubLabel} - ${teamLabel}`
                   const gamePts = t.points - t.bonus_batting - t.bonus_bowling + t.penalty_points
 
                   // Zone colouring applies when not our row. Our row keeps the emerald identity;
