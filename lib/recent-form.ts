@@ -45,8 +45,8 @@ export async function fetchFormByOpponent(perOpponent = 5): Promise<Record<strin
 
 /**
  * Reduce a result_text to its single-letter form code.
- * Handles Play-Cricket's "{Team} - Conceded" descriptions: if SLCC conceded,
- * we lost (L); if the OPPONENT conceded, we won (W).
+ * Conceded matches show as 'C' (neutral) — neither side actually played,
+ * so they shouldn't pollute W/L form figures.
  */
 export function formLetter(result: string | null): 'W' | 'L' | 'T' | 'D' | 'A' | 'C' | '?' {
   if (!result) return '?'
@@ -56,8 +56,6 @@ export function formLetter(result: string | null): 'W' | 'L' | 'T' | 'D' | 'A' |
   if (result === 'Drew') return 'D'
   if (result === 'Abandoned') return 'A'
   if (result === 'Cancelled') return 'C'
-  if (result.includes('Conceded')) {
-    return result.startsWith('St Lawrence CC') ? 'L' : 'W'
-  }
+  if (result.includes('Conceded')) return 'C'
   return '?'
 }
