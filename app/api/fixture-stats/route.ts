@@ -142,9 +142,10 @@ export async function GET(req: NextRequest) {
     // play_cricket_match_id.
     const { data: priorFixtures } = await supabase
       .from('fixtures')
-      .select('play_cricket_match_id')
+      .select('id, match_date, opponent, home_away, result_text, play_cricket_match_id')
       .eq('opponent', opponent)
-      .not('play_cricket_match_id', 'is', null)
+      .not('match_date', 'is', null)
+      .order('match_date', { ascending: false })
 
     const priorMatchIds = (priorFixtures ?? [])
       .map(f => f.play_cricket_match_id)
@@ -166,6 +167,18 @@ export async function GET(req: NextRequest) {
       if (sc.result_text === 'Won') won++
       else if (sc.result_text === 'Lost') lost++
     }
+
+    // Recent completed meetings — most recent 5, with the fixture id so each
+    // chip / row links to the scorecard. Filter out abandoned/cancelled-with-no-data.
+    const completedPriors = (priorFixtures ?? []).filter(f => f.result_text)
+    const recentMeetings = completedPriors.slice(0, 5).map(f => ({
+      id: f.id,
+      result_text: f.result_text,
+      opponent: f.opponent,
+      match_date: f.match_date,
+      home_away: f.home_away,
+    }))
+    const totalCompleted = completedPriors.length
 
     // Top scorer ever vs this opponent (our batters)
     let topScorerEver: { name: string; runs: number; matchDate: string } | undefined
@@ -226,6 +239,8 @@ export async function GET(req: NextRequest) {
         lost,
         topScorerEver,
         topBowlerEver,
+        recentMeetings,
+        totalCompleted,
       },
     })
   }

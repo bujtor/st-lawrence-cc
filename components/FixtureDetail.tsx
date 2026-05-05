@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import type { Fixture } from '@/lib/supabase'
+import type { RecentFormEntry } from '@/lib/recent-form'
+import RecentFormStrip from './RecentFormStrip'
+import { clubSlug } from '@/lib/slug'
 
 function formatFullDate(dateStr: string) {
   const d = new Date(dateStr + 'T00:00:00')
@@ -41,6 +44,8 @@ type FixtureStats = {
     lost: number
     topScorerEver?: { name: string; runs: number; matchDate: string }
     topBowlerEver?: { name: string; wkts: number; runs: number; matchDate: string }
+    recentMeetings?: RecentFormEntry[]
+    totalCompleted?: number
   }
 }
 
@@ -301,6 +306,14 @@ export default function FixtureDetail({
                             <div className="text-lg font-bold text-gray-600">{stats.h2h.lost}</div>
                           </div>
                         </div>
+                        {stats.h2h.recentMeetings && stats.h2h.recentMeetings.length > 0 && (
+                          <RecentFormStrip
+                            results={stats.h2h.recentMeetings}
+                            variant="light"
+                            label={`Last ${stats.h2h.recentMeetings.length} vs them`}
+                            size="sm"
+                          />
+                        )}
                         {stats.h2h.topScorerEver && (
                           <div className="text-xs text-gray-700">
                             <span className="text-gray-400">Top bat vs them</span>{' '}
@@ -321,6 +334,12 @@ export default function FixtureDetail({
                             )}
                           </div>
                         )}
+                        <Link
+                          href={`/clubs/${clubSlug(fixture.opponent)}`}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 no-underline pt-1"
+                        >
+                          View all {stats.h2h.totalCompleted ?? stats.h2h.played} previous meetings →
+                        </Link>
                       </>
                     )}
                   </div>
