@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import { supabase } from '@/lib/supabase'
 import { clubSlug } from '@/lib/slug'
 import ScorecardTabs, { type InningsView, type ScBat, type ScBowl } from '@/components/ScorecardTabs'
+import { formatOvers } from '@/lib/play-cricket'
 
 export const dynamic = 'force-dynamic'
 
@@ -288,8 +289,29 @@ export default async function ScorecardPage({
       </div>
 
       {/* Toss / format / scorer notes */}
-      {scorecard && (scorecard.toss_won_by_team_id || scorecard.batted_first_team_id || scorecard.match_notes) && (
+      {scorecard && (views.length > 0 || scorecard.toss_won_by_team_id || scorecard.batted_first_team_id || scorecard.match_notes) && (
         <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 mb-6 text-sm text-gray-600">
+          {/* Score summary — both innings, batting-first order, OUR row highlighted */}
+          {views.length > 0 && (
+            <div className="mb-3 pb-3 border-b border-gray-200 space-y-1">
+              {views.map((v) => {
+                const isOurs = v.key === scorecard?.our_team_id
+                return (
+                  <div key={v.key} className="flex items-baseline justify-between gap-3">
+                    <span className={`text-sm ${isOurs ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>
+                      {v.battingTeam}
+                    </span>
+                    <span className={`font-mono text-sm tabular-nums ${isOurs ? 'font-bold text-gray-900' : 'text-gray-700'}`}>
+                      {v.totalRuns}/{v.totalWickets}
+                      {v.totalOvers != null && v.totalOvers > 0 && (
+                        <span className="text-gray-400 font-normal ml-1.5">({formatOvers(v.totalOvers)} ov)</span>
+                      )}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
           {scorecard.toss_won_by_team_id && (
             <div>
               <span className="font-semibold text-gray-700">
