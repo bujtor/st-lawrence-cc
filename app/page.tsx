@@ -36,7 +36,7 @@ const sponsors = [
   { name: 'Savills', file: 'savills.png' },
   // Logos pending — paid sponsors, name-only chip until artwork arrives
   { name: 'Harding Motors', file: null },
-  { name: 'Dalton Joinery', file: null },
+  { name: 'Dalton Joinery', file: 'dalton-joinery.png' },
 ]
 
 function fmtDayNum(d: string) {
