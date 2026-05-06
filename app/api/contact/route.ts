@@ -90,9 +90,13 @@ export async function POST(req: NextRequest) {
   // Send email via Resend (best-effort — Supabase row already saved).
   const apiKey = process.env.RESEND_API_KEY
   const fromAddr = process.env.CONTACT_FROM_EMAIL || 'noreply@stlawrencecc.co.uk'
-  const toAddr = process.env.CONTACT_RECIPIENT_EMAIL
+  // Recipients: comma-separated list in CONTACT_RECIPIENT_EMAIL (handles multi-captain etc).
+  const toAddrs = (process.env.CONTACT_RECIPIENT_EMAIL ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
 
-  if (!apiKey || !toAddr) {
+  if (!apiKey || toAddrs.length === 0) {
     await sb
       .from('contact_messages')
       .update({ email_error: 'missing_resend_config' })
@@ -118,7 +122,7 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await resend.emails.send({
       from: `St Lawrence CC <${fromAddr}>`,
-      to: [toAddr],
+      to: toAddrs,
       replyTo: email,
       subject,
       text,
