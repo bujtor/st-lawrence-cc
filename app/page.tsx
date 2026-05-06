@@ -29,12 +29,14 @@ import {
 export const dynamic = 'force-dynamic'
 
 const sponsors = [
-  { name: 'Barber Jack', file: 'barber-jack.png' },
+  { name: 'Barber Jack', file: 'barber-jack.png' as string | null },
   { name: 'JML', file: 'jml.jpeg' },
   { name: 'Regal Point', file: 'regal-point.jpg' },
   { name: 'Gulliver', file: 'gulliver.png' },
   { name: 'Savills', file: 'savills.png' },
-  { name: 'Harding Motors', file: null as string | null },
+  // Logos pending — paid sponsors, name-only chip until artwork arrives
+  { name: 'Harding Motors', file: null },
+  { name: 'Dalton Joinery', file: null },
 ]
 
 function fmtDayNum(d: string) {
