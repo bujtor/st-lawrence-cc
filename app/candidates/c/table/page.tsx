@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { clubSlug } from '@/lib/slug'
 import {
   CKicker,
   CPageHeader,
@@ -271,9 +272,10 @@ export default async function CTablePage({
                           {isRelegation && <span style={{ marginRight: 3 }}>▼</span>}
                           {pos}
                         </td>
-                        {/* Team name */}
+                        {/* Team name — links to that team's match history.
+                            Ours → our fixtures list; opponents → /clubs/{slug}. */}
                         <td style={{
-                          padding: '11px 14px',
+                          padding: 0,
                           fontFamily: display,
                           fontSize: 15,
                           fontWeight: isOurs ? 600 : 500,
@@ -281,7 +283,18 @@ export default async function CTablePage({
                           borderBottom: `1px dashed ${C_RULE}`,
                           whiteSpace: 'nowrap',
                         }}>
-                          {fullName}
+                          <Link
+                            href={isOurs ? '/candidates/c/fixtures' : `/candidates/c/clubs/${clubSlug(clubLabel || teamLabel)}`}
+                            style={{
+                              display: 'block',
+                              padding: '11px 14px',
+                              color: 'inherit',
+                              textDecoration: 'none',
+                            }}
+                            className="table-team-link"
+                          >
+                            {fullName}
+                          </Link>
                         </td>
                         <td style={tdBase}>{t.played}</td>
                         <td style={{ ...tdBase, fontWeight: 600, color: '#444' }}>{t.won}</td>
@@ -355,6 +368,9 @@ export default async function CTablePage({
           </>
         )}
       </CContainer>
+      <style>{`
+        .table-team-link:hover { color: ${C_RED} !important; text-decoration: underline !important; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+      `}</style>
     </div>
   )
 }
