@@ -480,40 +480,6 @@ export default function AboutPage() {
           </div>
         </div>
 
-        {/* ─── Team photo ─── */}
-        <div style={{ marginTop: 10, position: 'relative', aspectRatio: '16/7', overflow: 'hidden' }}>
-          <Image
-            src="/images/gallery/team-away.jpg"
-            alt="St Lawrence CC team"
-            fill
-            className="object-cover"
-          />
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'linear-gradient(to top, rgba(13,59,39,.7) 0%, transparent 50%)',
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 20,
-              left: 24,
-            }}
-          >
-            <span
-              style={{
-                fontFamily: display,
-                fontStyle: 'italic',
-                fontSize: 18,
-                color: 'rgba(255,255,255,.85)',
-              }}
-            >
-              The Saints, on tour.
-            </span>
-          </div>
-        </div>
       </CContainer>
 
       {/* ─── Saints Want You banner ─── */}

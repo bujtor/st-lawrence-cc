@@ -111,15 +111,6 @@ export default function AboutPage() {
           </div>
         </div>
 
-        {/* Team photo */}
-        <div className="relative aspect-[16/9] rounded-xl overflow-hidden">
-          <Image src="/images/gallery/team-away.jpg" alt="St Lawrence CC team" fill className="object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-          <div className="absolute bottom-4 left-4">
-            <p className="text-white text-sm font-semibold drop-shadow-lg">The lads on tour</p>
-          </div>
-        </div>
-
         {/* Join Us */}
         <div className="bg-white rounded-xl p-6 border border-gray-100">
           <h2 className="text-lg font-bold text-gray-900 mb-3">Join Us</h2>
