@@ -57,6 +57,7 @@ export default function CFooter() {
                   ['Stats', '/candidates/c/stats'],
                   ['Opponents', '/candidates/c/clubs'],
                   ['About', '/candidates/c/about'],
+                  ['Contact', '/candidates/c/contact'],
                 ],
               ],
               [
@@ -120,7 +121,7 @@ export default function CFooter() {
           textTransform: 'uppercase',
         }}
       >
-        &copy; {new Date().getFullYear()} St Lawrence CC — Play fair. Stay late.
+        &copy; {new Date().getFullYear()} St Lawrence CC · Bitchet Green
       </div>
     </footer>
   )

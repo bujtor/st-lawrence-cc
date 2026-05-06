@@ -716,26 +716,6 @@ export default async function CandidateCHome() {
         </div>
       </div>
 
-      {/* Pull quote */}
-      <div style={{ background: C_GREEN, color: '#fff' }}>
-        <div style={{ maxWidth: 980, margin: '0 auto', padding: '100px 32px', textAlign: 'center' }}>
-          <CKicker color={C_RED}>Motto</CKicker>
-          <div
-            style={{
-              fontFamily: display,
-              fontSize: 'clamp(40px, 7vw, 84px)',
-              fontWeight: 400,
-              fontStyle: 'italic',
-              lineHeight: 1.02,
-              letterSpacing: -2,
-              marginTop: 24,
-            }}
-          >
-            &ldquo;Play fair. Stay late. Chase the ice&nbsp;cream van.&rdquo;
-          </div>
-        </div>
-      </div>
-
       {/* Top performers — real data */}
       <div style={{ maxWidth: 1240, margin: '0 auto', padding: '72px 32px' }}>
         <CEditorialHeader kicker={`Form Guide · ${currentYear}`} title="Leading the charts." />
@@ -970,7 +950,7 @@ export default async function CandidateCHome() {
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 14, marginTop: 36, flexWrap: 'wrap' }}>
             <Link
-              href="/contact"
+              href="/candidates/c/contact"
               style={{
                 padding: '16px 28px',
                 background: C_RED,

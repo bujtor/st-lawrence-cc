@@ -338,7 +338,7 @@ export default function AboutPage() {
               </div>
               <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <Link
-                  href="/contact"
+                  href="/candidates/c/contact"
                   style={{
                     display: 'block',
                     padding: '12px 18px',
@@ -524,7 +524,7 @@ export default function AboutPage() {
             }}
           >
             <Link
-              href="/contact"
+              href="/candidates/c/contact"
               style={{
                 padding: '15px 28px',
                 background: C_RED,

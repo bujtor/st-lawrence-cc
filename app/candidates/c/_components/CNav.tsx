@@ -13,6 +13,7 @@ const links = [
   { href: '/candidates/c/stats', label: 'Stats' },
   { href: '/candidates/c/clubs', label: 'Opponents' },
   { href: '/candidates/c/about', label: 'About' },
+  { href: '/candidates/c/contact', label: 'Contact' },
 ]
 
 export default function CNav() {
@@ -106,7 +107,7 @@ export default function CNav() {
             )
           })}
           <Link
-            href="/contact"
+            href="/candidates/c/contact"
             style={{
               padding: '8px 14px',
               background: C_RED,
@@ -182,7 +183,7 @@ export default function CNav() {
             )
           })}
           <Link
-            href="/contact"
+            href="/candidates/c/contact"
             onClick={() => setOpen(false)}
             style={{
               marginTop: 12,
