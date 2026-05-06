@@ -31,25 +31,28 @@ const ALL_SEASONS = Array.from({ length: 2026 - 2008 + 1 }, (_, i) => 2008 + i)
 const RECENT_SEASONS = ALL_SEASONS.slice(-4)
 const OLDER_SEASONS = ALL_SEASONS.slice(0, -4).slice().reverse()
 
-function isPast(dateStr: string) {
-  return new Date(dateStr + 'T23:59:59') < new Date()
-}
-
 export default function CFixturesList({
   fixtures,
   season,
   scorecardIds = [],
   recentForm = [],
   formByOpponent = {},
+  todayDate,
 }: {
   fixtures: Fixture[]
   season: number
   scorecardIds?: number[]
   recentForm?: RecentFormEntry[]
   formByOpponent?: Record<string, RecentFormEntry[]>
+  /** YYYY-MM-DD computed on the server in Europe/London — passed in so SSR + hydration agree. */
+  todayDate: string
 }) {
   const [filter, setFilter] = useState<'all' | 'home' | 'away'>('all')
   const scorecardSet = new Set(scorecardIds)
+
+  // Treat any fixture dated today-or-later as "upcoming" so we don't surprise users
+  // by demoting today's match to the results section before play starts.
+  const isPast = (d: string) => d < todayDate
 
   const filtered = fixtures.filter((f) => {
     if (filter === 'home') return f.home_away === 'H'

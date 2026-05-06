@@ -165,10 +165,16 @@ export default function CScorecardTabs({
     <div style={{ fontFamily: sansTight }}>
       {/* Tab switcher */}
       {views.length > 1 && (
-        <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: `1px solid ${C_RULE}`, paddingBottom: 0 }}>
+        <div
+          role="tablist"
+          aria-label="Innings"
+          style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: `1px solid ${C_RULE}`, paddingBottom: 0 }}
+        >
           {views.map((v, idx) => (
             <button
               key={v.key}
+              role="tab"
+              aria-selected={idx === active}
               onClick={() => setActive(idx)}
               style={{
                 padding: '10px 18px',

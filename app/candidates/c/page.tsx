@@ -773,46 +773,53 @@ export default async function CandidateCHome() {
                 No batting data yet.
               </div>
             )}
-            {topBatters.map((b, i) => (
-              <Link
-                key={b.id}
-                href={`/candidates/c/stats/${encodeURIComponent(String(b.id ?? ''))}`}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '32px 1fr auto',
-                  gap: 14,
-                  alignItems: 'center',
-                  padding: '14px 0',
-                  borderBottom:
-                    i === topBatters.length - 1 ? 'none' : `1px dashed ${C_RULE}`,
-                  textDecoration: 'none',
-                  color: C_INK,
-                }}
-              >
-                <div
-                  style={{
-                    fontFamily: display,
-                    fontSize: 28,
-                    fontWeight: 500,
-                    color: i === 0 ? C_GREEN : '#ccc',
-                    lineHeight: 1,
-                  }}
-                >
-                  0{i + 1}
-                </div>
-                <div>
-                  <div style={{ fontFamily: display, fontSize: 18, fontWeight: 500, letterSpacing: -0.3 }}>
-                    {b.name}
+            {topBatters.map((b, i) => {
+              const rowBody = (
+                <>
+                  <div
+                    style={{
+                      fontFamily: display,
+                      fontSize: 28,
+                      fontWeight: 500,
+                      color: i === 0 ? C_GREEN : '#ccc',
+                      lineHeight: 1,
+                    }}
+                  >
+                    0{i + 1}
                   </div>
-                  <div style={{ fontSize: 12, color: '#777', marginTop: 2 }}>
-                    {b.inns} inn · HS {b.hs}
+                  <div>
+                    <div style={{ fontFamily: display, fontSize: 18, fontWeight: 500, letterSpacing: -0.3 }}>
+                      {b.name}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#777', marginTop: 2 }}>
+                      {b.inns} inn · HS {b.hs}
+                    </div>
                   </div>
+                  <div style={{ fontFamily: mono, fontSize: 15, fontWeight: 700, color: C_GREEN }}>
+                    {b.runs} runs
+                  </div>
+                </>
+              )
+              const rowStyle: React.CSSProperties = {
+                display: 'grid',
+                gridTemplateColumns: '32px 1fr auto',
+                gap: 14,
+                alignItems: 'center',
+                padding: '14px 0',
+                borderBottom: i === topBatters.length - 1 ? 'none' : `1px dashed ${C_RULE}`,
+                textDecoration: 'none',
+                color: C_INK,
+              }
+              return b.id != null ? (
+                <Link key={String(b.id)} href={`/candidates/c/stats/${encodeURIComponent(String(b.id))}`} style={rowStyle}>
+                  {rowBody}
+                </Link>
+              ) : (
+                <div key={`bat-${b.name}-${i}`} style={rowStyle}>
+                  {rowBody}
                 </div>
-                <div style={{ fontFamily: mono, fontSize: 15, fontWeight: 700, color: C_GREEN }}>
-                  {b.runs} runs
-                </div>
-              </Link>
-            ))}
+              )
+            })}
           </CCard>
 
           <CCard padding="28px 32px">
@@ -845,46 +852,53 @@ export default async function CandidateCHome() {
                 No bowling data yet.
               </div>
             )}
-            {topBowlers.map((b, i) => (
-              <Link
-                key={b.id}
-                href={`/candidates/c/stats/${encodeURIComponent(String(b.id ?? ''))}`}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '32px 1fr auto',
-                  gap: 14,
-                  alignItems: 'center',
-                  padding: '14px 0',
-                  borderBottom:
-                    i === topBowlers.length - 1 ? 'none' : `1px dashed ${C_RULE}`,
-                  textDecoration: 'none',
-                  color: C_INK,
-                }}
-              >
-                <div
-                  style={{
-                    fontFamily: display,
-                    fontSize: 28,
-                    fontWeight: 500,
-                    color: i === 0 ? C_RED : '#ccc',
-                    lineHeight: 1,
-                  }}
-                >
-                  0{i + 1}
-                </div>
-                <div>
-                  <div style={{ fontFamily: display, fontSize: 18, fontWeight: 500, letterSpacing: -0.3 }}>
-                    {b.name}
+            {topBowlers.map((b, i) => {
+              const rowBody = (
+                <>
+                  <div
+                    style={{
+                      fontFamily: display,
+                      fontSize: 28,
+                      fontWeight: 500,
+                      color: i === 0 ? C_RED : '#ccc',
+                      lineHeight: 1,
+                    }}
+                  >
+                    0{i + 1}
                   </div>
-                  <div style={{ fontSize: 12, color: '#777', marginTop: 2 }}>
-                    {b.matches.size} mat · best {b.bestWkts}/{b.bestRuns}
+                  <div>
+                    <div style={{ fontFamily: display, fontSize: 18, fontWeight: 500, letterSpacing: -0.3 }}>
+                      {b.name}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#777', marginTop: 2 }}>
+                      {b.matches.size} mat · best {b.bestWkts}/{b.bestRuns}
+                    </div>
                   </div>
+                  <div style={{ fontFamily: mono, fontSize: 15, fontWeight: 700, color: C_RED }}>
+                    {b.wickets} wkts
+                  </div>
+                </>
+              )
+              const rowStyle: React.CSSProperties = {
+                display: 'grid',
+                gridTemplateColumns: '32px 1fr auto',
+                gap: 14,
+                alignItems: 'center',
+                padding: '14px 0',
+                borderBottom: i === topBowlers.length - 1 ? 'none' : `1px dashed ${C_RULE}`,
+                textDecoration: 'none',
+                color: C_INK,
+              }
+              return b.id != null ? (
+                <Link key={String(b.id)} href={`/candidates/c/stats/${encodeURIComponent(String(b.id))}`} style={rowStyle}>
+                  {rowBody}
+                </Link>
+              ) : (
+                <div key={`bowl-${b.name}-${i}`} style={rowStyle}>
+                  {rowBody}
                 </div>
-                <div style={{ fontFamily: mono, fontSize: 15, fontWeight: 700, color: C_RED }}>
-                  {b.wickets} wkts
-                </div>
-              </Link>
-            ))}
+              )
+            })}
           </CCard>
         </div>
       </div>
@@ -1000,13 +1014,13 @@ export default async function CandidateCHome() {
           className="grid-photos-on-mobile"
         >
           {[
-            '/images/gallery/batting-shot.jpg',
-            '/images/gallery/bowling-action.jpg',
-            '/images/gallery/roller.jpg',
-            '/images/gallery/pavilion-social.jpg',
-          ].map((p, i) => (
-            <div key={i} style={{ position: 'relative', aspectRatio: '4/3', overflow: 'hidden' }}>
-              <Image src={p} alt="Gallery" fill className="object-cover" style={{ filter: 'saturate(1.05)' }} />
+            { src: '/images/gallery/batting-shot.jpg', alt: 'Batting at Bitchet Green' },
+            { src: '/images/gallery/bowling-action.jpg', alt: 'Bowling action shot' },
+            { src: '/images/gallery/roller.jpg', alt: 'Rolling the wicket before play' },
+            { src: '/images/gallery/pavilion-social.jpg', alt: 'Tea break at the pavilion' },
+          ].map((p) => (
+            <div key={p.src} style={{ position: 'relative', aspectRatio: '4/3', overflow: 'hidden' }}>
+              <Image src={p.src} alt={p.alt} fill className="object-cover" style={{ filter: 'saturate(1.05)' }} />
             </div>
           ))}
         </div>

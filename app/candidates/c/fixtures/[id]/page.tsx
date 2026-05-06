@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { clubSlug } from '@/lib/slug'
 import { formatOvers } from '@/lib/play-cricket'
+import { todayLondon } from '@/lib/london-time'
 import CScorecardTabs, {
   type InningsView,
   type ScBat,
@@ -251,7 +252,8 @@ export default async function CFixtureDetailPage({
   const ourBatIdx = views.findIndex((v) => v.key === scorecard?.our_team_id)
   const defaultIdx = ourBatIdx >= 0 ? ourBatIdx : 0
 
-  const isPast = new Date(fixture.match_date + 'T23:59:59') < new Date()
+  // Use Europe/London string compare so the page categorisation doesn't flip mid-evening UK time.
+  const isPast = fixture.match_date < todayLondon()
   const hasScorecard = scorecard && views.length > 0
 
   return (

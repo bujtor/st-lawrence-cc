@@ -245,14 +245,21 @@ export default function CLeaderboardTable({
                 color: '#999',
                 fontWeight: 600,
                 width: 28,
-              }}>#</th>
+              }}
+                scope="col"
+              >#</th>
               {columns.map((col) => {
                 const isActive = col.key === sortKey
                 return (
-                  <th key={col.key} style={{
-                    padding: '8px 12px',
-                    textAlign: col.align,
-                  }}>
+                  <th
+                    key={col.key}
+                    scope="col"
+                    aria-sort={isActive ? (sortDir === 'desc' ? 'descending' : 'ascending') : 'none'}
+                    style={{
+                      padding: '8px 12px',
+                      textAlign: col.align,
+                    }}
+                  >
                     <button
                       onClick={() => handleSort(col.key)}
                       style={{

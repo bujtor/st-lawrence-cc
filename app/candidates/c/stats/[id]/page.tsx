@@ -336,8 +336,7 @@ export default async function CPlayerPage({
                         borderBottom: `1px dashed ${C_RULE}`,
                       }
                       return (
-                        <>
-                          <tr key={`${s}-summary`} style={{ cursor: 'pointer' }}>
+                        <tr key={`bat-${s}`} style={{ cursor: 'pointer' }}>
                             <td style={{ ...tdStyle, textAlign: 'left' }}>
                               <details>
                                 <summary style={{ listStyle: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -391,7 +390,6 @@ export default async function CPlayerPage({
                             <td style={tdStyle}>{fmtAvg(a.runs, a.inns, a.notOut)}</td>
                             <td style={tdStyle}>{a.fifties}/{a.hundreds}</td>
                           </tr>
-                        </>
                       )
                     })}
                   </tbody>

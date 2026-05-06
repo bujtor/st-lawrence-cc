@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { fetchRecentForm, fetchFormByOpponent } from '@/lib/recent-form'
+import { todayLondon } from '@/lib/london-time'
 import CFixturesList from './_components/CFixturesList'
 
 export const dynamic = 'force-dynamic'
@@ -34,6 +35,7 @@ export default async function CFixturesPage({
       scorecardIds={scorecardIds}
       recentForm={recentForm}
       formByOpponent={formByOpponent}
+      todayDate={todayLondon()}
     />
   )
 }

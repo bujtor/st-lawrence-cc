@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { clubSlug } from '@/lib/slug'
+import { formLetter } from '@/lib/recent-form'
+import { todayLondon } from '@/lib/london-time'
 import {
   CKicker,
   CCard,
@@ -30,6 +32,7 @@ type FixtureRow = {
   opponent: string
   venue: string
   home_away: string
+  start_time: string | null
   result_text: string | null
   competition: string | null
   play_cricket_match_id: number | null
@@ -38,15 +41,6 @@ type FixtureRow = {
 
 type TopBat = { batsman_name: string | null; runs: number | null; match_id: number | null }
 type TopBowl = { bowler_name: string | null; wickets: number | null; runs: number | null; match_id: number | null }
-
-function resultLetter(r: string | null): 'W' | 'L' | 'T' | 'D' | 'A' | '?' {
-  if (r === 'Won') return 'W'
-  if (r === 'Lost') return 'L'
-  if (r === 'Tied') return 'T'
-  if (r === 'Drew') return 'D'
-  if (r === 'Abandoned') return 'A'
-  return '?'
-}
 
 function fmtYear(d: string): string {
   return new Date(d + 'T00:00:00').getFullYear().toString()
@@ -61,7 +55,7 @@ export default async function ClubDetailPage({
 
   const { data: allFixtures } = await supabase
     .from('fixtures')
-    .select('id, match_date, opponent, venue, home_away, result_text, competition, play_cricket_match_id, season')
+    .select('id, match_date, opponent, venue, home_away, start_time, result_text, competition, play_cricket_match_id, season')
     .order('match_date', { ascending: false })
 
   const allOpponents = new Set<string>()
@@ -79,9 +73,11 @@ export default async function ClubDetailPage({
     (f: FixtureRow) => f.opponent === matchedOpponent
   ) as FixtureRow[]
 
-  // H2H summary
+  // H2H summary — only count completed fixtures (those with a result_text).
+  // Future fixtures and rain-offs without a recorded result must not skew totals.
+  const completed = fixtures.filter((f) => f.result_text)
   let played = 0, won = 0, lost = 0, drew = 0, tied = 0, abandoned = 0
-  for (const f of fixtures) {
+  for (const f of completed) {
     played++
     const r = f.result_text ?? ''
     if (r === 'Won') won++
@@ -92,8 +88,8 @@ export default async function ClubDetailPage({
   }
 
   const winPct = played > 0 ? Math.round((won / played) * 100) : 0
-  const firstMeeting = fixtures.length > 0 ? fixtures[fixtures.length - 1].match_date : null
-  const lastMeeting = fixtures.length > 0 ? fixtures[0].match_date : null
+  const firstMeeting = completed.length > 0 ? completed[completed.length - 1].match_date : null
+  const lastMeeting = completed.length > 0 ? completed[0].match_date : null
 
   const matchIds = fixtures
     .map((f: FixtureRow) => f.play_cricket_match_id)
@@ -139,16 +135,22 @@ export default async function ClubDetailPage({
   }
 
   // Last 5 form letters
-  const recentForm = fixtures.slice(0, 5).map(f => resultLetter(f.result_text))
+  // Last 5 results — only completed; use shared formLetter so "Conceded" maps to 'C'.
+  const recentForm = completed.slice(0, 5).map((f) => formLetter(f.result_text))
 
-  // Group fixtures by season (year) for display
+  // Group COMPLETED fixtures by season — page title is "previous meetings",
+  // so don't bury upcoming/unresulted matches inside the historical groups.
   const bySeason = new Map<number, FixtureRow[]>()
-  for (const f of fixtures) {
+  for (const f of completed) {
     const yr = f.season ?? new Date(f.match_date + 'T00:00:00').getFullYear()
     if (!bySeason.has(yr)) bySeason.set(yr, [])
     bySeason.get(yr)!.push(f)
   }
   const seasons = Array.from(bySeason.keys()).sort((a, b) => b - a)
+
+  // Upcoming match vs them (small callout above the history if one is on the books).
+  const today = todayLondon()
+  const nextVsThem = fixtures.find((f) => !f.result_text && f.match_date >= today) ?? null
 
   return (
     <div style={{ fontFamily: sansTight, color: C_INK }}>
@@ -381,6 +383,35 @@ export default async function ClubDetailPage({
               )}
             </div>
           </section>
+        )}
+
+        {/* Upcoming fixture callout */}
+        {nextVsThem && (
+          <Link
+            href={`/candidates/c/fixtures/${nextVsThem.id}`}
+            style={{
+              display: 'block',
+              background: '#fff',
+              border: `1px solid ${C_RULE}`,
+              borderLeft: `4px solid ${C_RED}`,
+              padding: '14px 18px',
+              marginBottom: 32,
+              textDecoration: 'none',
+              color: C_INK,
+            }}
+          >
+            <CKicker color={C_RED}>Next meeting</CKicker>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 6, gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ fontFamily: display, fontSize: 22, fontWeight: 500 }}>
+                <CVs /> {matchedOpponent}
+              </div>
+              <div style={{ fontFamily: mono, fontSize: 12, color: '#666', letterSpacing: 1 }}>
+                {new Date(nextVsThem.match_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                {nextVsThem.start_time ? ` · ${nextVsThem.start_time.slice(0, 5)}` : ''}
+                {' · '}{nextVsThem.home_away === 'H' ? 'Home' : 'Away'}
+              </div>
+            </div>
+          </Link>
         )}
 
         {/* Match history grouped by season */}
