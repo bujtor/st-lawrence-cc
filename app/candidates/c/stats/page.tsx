@@ -349,12 +349,10 @@ export default async function CStatsPage({
               {/* Batting */}
               {batters.length > 0 && (
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
-                    <div>
-                      <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: 3, color: C_RED, textTransform: 'uppercase', fontWeight: 700 }}>— Batting</div>
-                      <div style={{ fontFamily: display, fontSize: 28, fontWeight: 500, letterSpacing: -0.5, marginTop: 4 }}>Top batters.</div>
-                    </div>
-                    <div style={{ fontFamily: mono, fontSize: 10, color: '#aaa', letterSpacing: 1, textTransform: 'uppercase' }}>
+                  <div style={{ textAlign: 'center', marginBottom: 14 }}>
+                    <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: 3, color: C_RED, textTransform: 'uppercase', fontWeight: 700 }}>— Batting</div>
+                    <div style={{ fontFamily: display, fontSize: 28, fontWeight: 500, letterSpacing: -0.5, marginTop: 4 }}>Top batters.</div>
+                    <div style={{ fontFamily: mono, fontSize: 10, color: '#aaa', letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 4 }}>
                       {batters.length} players
                     </div>
                   </div>
@@ -365,12 +363,10 @@ export default async function CStatsPage({
               {/* Bowling */}
               {bowlers.length > 0 && (
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
-                    <div>
-                      <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: 3, color: C_RED, textTransform: 'uppercase', fontWeight: 700 }}>— Bowling</div>
-                      <div style={{ fontFamily: display, fontSize: 28, fontWeight: 500, letterSpacing: -0.5, marginTop: 4 }}>Top bowlers.</div>
-                    </div>
-                    <div style={{ fontFamily: mono, fontSize: 10, color: '#aaa', letterSpacing: 1, textTransform: 'uppercase' }}>
+                  <div style={{ textAlign: 'center', marginBottom: 14 }}>
+                    <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: 3, color: C_RED, textTransform: 'uppercase', fontWeight: 700 }}>— Bowling</div>
+                    <div style={{ fontFamily: display, fontSize: 28, fontWeight: 500, letterSpacing: -0.5, marginTop: 4 }}>Top bowlers.</div>
+                    <div style={{ fontFamily: mono, fontSize: 10, color: '#aaa', letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 4 }}>
                       {bowlers.length} players
                     </div>
                   </div>
@@ -381,12 +377,10 @@ export default async function CStatsPage({
               {/* Fielding */}
               {fielders.length > 0 && (
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
-                    <div>
-                      <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: 3, color: C_RED, textTransform: 'uppercase', fontWeight: 700 }}>— Fielding</div>
-                      <div style={{ fontFamily: display, fontSize: 28, fontWeight: 500, letterSpacing: -0.5, marginTop: 4 }}>Top fielders.</div>
-                    </div>
-                    <div style={{ fontFamily: mono, fontSize: 10, color: '#aaa', letterSpacing: 1, textTransform: 'uppercase' }}>
+                  <div style={{ textAlign: 'center', marginBottom: 14 }}>
+                    <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: 3, color: C_RED, textTransform: 'uppercase', fontWeight: 700 }}>— Fielding</div>
+                    <div style={{ fontFamily: display, fontSize: 28, fontWeight: 500, letterSpacing: -0.5, marginTop: 4 }}>Top fielders.</div>
+                    <div style={{ fontFamily: mono, fontSize: 10, color: '#aaa', letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 4 }}>
                       {fielders.length} players
                     </div>
                   </div>
