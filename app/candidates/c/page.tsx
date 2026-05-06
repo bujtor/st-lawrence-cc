@@ -188,6 +188,21 @@ export default async function CandidateCHome() {
             margin: '0 auto',
           }}
         >
+          {/* Badge — anchors the brand mark above the editorial type */}
+          <Image
+            src="/images/badge.png"
+            alt="St Lawrence Cricket Club"
+            width={420}
+            height={290}
+            priority
+            style={{
+              height: 'clamp(96px, 14vw, 160px)',
+              width: 'auto',
+              marginBottom: 26,
+              display: 'block',
+              filter: 'brightness(0) invert(1) drop-shadow(0 4px 14px rgba(0,0,0,.35))',
+            }}
+          />
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
             <div style={{ width: 48, height: 2, background: C_RED }} />
             <div
@@ -250,13 +265,15 @@ export default async function CandidateCHome() {
         </div>
       </div>
 
-      {/* Sponsor strip — dark band */}
-      <div style={{ background: C_INK, color: 'rgba(255,255,255,.55)' }}>
+      {/* Sponsor strip — light band so colour logos render naturally
+          (the previous brightness/invert filter destroyed JPEG logos with
+          white backgrounds and full-colour brand marks). */}
+      <div style={{ background: '#fff', borderBottom: `1px solid ${C_RULE}` }}>
         <div
           style={{
             maxWidth: 1240,
             margin: '0 auto',
-            padding: '18px 32px',
+            padding: '22px 32px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -270,6 +287,8 @@ export default async function CandidateCHome() {
               fontSize: 10,
               letterSpacing: 3,
               textTransform: 'uppercase',
+              color: '#888',
+              fontWeight: 600,
             }}
           >
             Backed by our sponsors ———
@@ -278,7 +297,7 @@ export default async function CandidateCHome() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 32,
+              gap: 36,
               flexWrap: 'wrap',
             }}
           >
@@ -288,14 +307,12 @@ export default async function CandidateCHome() {
                   key={s.name}
                   src={`/images/sponsors/${s.file}`}
                   alt={s.name}
-                  width={100}
-                  height={28}
+                  width={120}
+                  height={36}
                   style={{
-                    height: 24,
+                    height: 32,
                     width: 'auto',
                     objectFit: 'contain',
-                    filter: 'brightness(0) invert(1)',
-                    opacity: 0.55,
                   }}
                 />
               ) : (
@@ -306,7 +323,8 @@ export default async function CandidateCHome() {
                     fontSize: 11,
                     letterSpacing: 1.5,
                     textTransform: 'uppercase',
-                    color: 'rgba(255,255,255,.6)',
+                    color: '#666',
+                    fontWeight: 600,
                   }}
                 >
                   {s.name}
