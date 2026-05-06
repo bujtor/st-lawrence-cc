@@ -92,9 +92,9 @@ export default function AboutPage() {
           </div>
         </div>
 
-        {/* 2024 Season */}
+        {/* 2025 Season */}
         <div className="bg-white rounded-xl p-6 border border-gray-100">
-          <h2 className="text-lg font-bold text-gray-900 mb-3">2024 Season Highlights</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-3">2025 Season Highlights</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200">
               <div className="text-lg font-extrabold text-emerald-700">Greg Shea</div>
