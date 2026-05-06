@@ -174,7 +174,10 @@ export default async function CandidateCHome() {
             textTransform: 'uppercase',
           }}
         >
-          <span>Bitchet Green · N 51.274 · E 0.230</span>
+          <span>
+            Bitchet Green
+            <span className="hidden sm:inline"> · N 51.274 · E 0.230</span>
+          </span>
           <span>Season {currentYear}</span>
         </div>
 
