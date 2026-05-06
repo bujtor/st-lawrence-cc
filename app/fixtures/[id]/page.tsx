@@ -1,10 +1,35 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import type { Metadata } from 'next'
 import { supabase } from '@/lib/supabase'
 import { clubSlug } from '@/lib/slug'
-import ScorecardTabs, { type InningsView, type ScBat, type ScBowl } from '@/components/ScorecardTabs'
 import { formatOvers } from '@/lib/play-cricket'
+import { todayLondon } from '@/lib/london-time'
+import CScorecardTabs, {
+  type InningsView,
+  type ScBat,
+  type ScBowl,
+} from '@/components/c/CScorecardTabs'
+import {
+  C_GREEN,
+  C_GREEN_LT,
+  C_RED,
+  C_INK,
+  C_RULE,
+  display,
+  sansTight,
+  mono,
+} from '@/lib/c-theme/tokens'
+import {
+  CKicker,
+  CContainer,
+  CCard,
+  CHomeAwayChip,
+  CResultPill,
+  CDateStack,
+  CBigNumber,
+  CVs,
+  CMonoLabel,
+} from '@/components/c/primitives'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,58 +38,53 @@ const OUR_CLUB_ID = '9754'
 function fmtFullDate(d: string) {
   const dt = new Date(d + 'T00:00:00')
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ]
   return `${days[dt.getDay()]} ${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()}`
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}): Promise<Metadata> {
-  const { id } = await params
-  const fixtureId = parseInt(id, 10)
-  if (isNaN(fixtureId)) return {}
-
-  const { data: fixture } = await supabase
-    .from('fixtures')
-    .select('opponent, match_date, result_text, competition')
-    .eq('id', fixtureId)
-    .single()
-
-  if (!fixture) return {}
-
-  const dateStr = fixture.match_date
-    ? new Date(fixture.match_date + 'T00:00:00').toLocaleDateString('en-GB', {
-        day: 'numeric', month: 'long', year: 'numeric',
-      })
-    : ''
-
-  const title = fixture.result_text
-    ? `St Lawrence CC vs ${fixture.opponent} — ${fixture.result_text} · ${dateStr}`
-    : `St Lawrence CC vs ${fixture.opponent} · ${dateStr}`
-
-  const description = fixture.result_text
-    ? `Match scorecard: St Lawrence CC vs ${fixture.opponent} on ${dateStr}. Result: ${fixture.result_text}.${fixture.competition ? ` ${fixture.competition}.` : ''}`
-    : `Upcoming fixture: St Lawrence CC vs ${fixture.opponent} on ${dateStr}.${fixture.competition ? ` ${fixture.competition}.` : ''}`
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      type: 'website',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-    },
-  }
+function fmtShortDate(d: string) {
+  return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  })
 }
 
-export default async function ScorecardPage({
+function fullTeamName(
+  club: string | null | undefined,
+  team: string | null | undefined,
+  fallback: string,
+) {
+  if (club && team) return `${club} - ${team}`
+  return team || club || fallback
+}
+
+function sumRuns(rows: ScBat[]): number {
+  return rows.reduce((s, r) => s + (r.runs ?? 0), 0)
+}
+
+function countDismissals(rows: ScBat[]): number {
+  return rows.filter((r) => {
+    const h = (r.how_out ?? '').toLowerCase()
+    return h && h !== 'not out' && h !== 'did not bat'
+  }).length
+}
+
+function sanitiseMatchNotes(raw: string): string {
+  const esc = raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  return esc
+    .replace(/&lt;br\s*\/?&gt;/gi, '<br/>')
+    .replace(/&lt;b&gt;/gi, '<b style="font-weight:700">')
+    .replace(/&lt;\/b&gt;/gi, '</b>')
+}
+
+export default async function CFixtureDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>
@@ -89,11 +109,12 @@ export default async function ScorecardPage({
         .single()
     : { data: null }
 
-  // Pull batting + bowling entries for the match. Sort within each team by batting position.
   const { data: battingRaw } = pcMatchId
     ? await supabase
         .from('batting_entries')
-        .select('team_batting_id, innings_number, position, batsman_name, batsman_id, how_out, fielder_name, bowler_name, runs, fours, sixes, balls')
+        .select(
+          'team_batting_id, innings_number, position, batsman_name, batsman_id, how_out, fielder_name, bowler_name, runs, fours, sixes, balls',
+        )
         .eq('match_id', pcMatchId)
         .order('team_batting_id', { ascending: true })
         .order('innings_number', { ascending: true })
@@ -103,13 +124,15 @@ export default async function ScorecardPage({
   const { data: bowlingRaw } = pcMatchId
     ? await supabase
         .from('bowling_entries')
-        .select('team_bowling_id, innings_number, bowler_name, bowler_id, overs, maidens, runs, wickets')
+        .select(
+          'team_bowling_id, innings_number, bowler_name, bowler_id, overs, maidens, runs, wickets',
+        )
         .eq('match_id', pcMatchId)
         .order('team_bowling_id', { ascending: true })
         .order('innings_number', { ascending: true })
     : { data: [] }
 
-  // Group batting by team_batting_id (each team = one innings in a normal 40-over match)
+  // Group batting by team_batting_id
   const batByTeam = new Map<string, ScBat[]>()
   for (const b of battingRaw ?? []) {
     const key = b.team_batting_id ?? ''
@@ -130,7 +153,7 @@ export default async function ScorecardPage({
     batByTeam.set(key, arr)
   }
 
-  // Group bowling by team_bowling_id (the team bowling TO the batting side)
+  // Group bowling by team_bowling_id
   const bowlByTeam = new Map<string, ScBowl[]>()
   for (const b of bowlingRaw ?? []) {
     const key = b.team_bowling_id ?? ''
@@ -147,7 +170,7 @@ export default async function ScorecardPage({
     bowlByTeam.set(key, arr)
   }
 
-  // Build ordered list of innings views. Prefer whoever batted first.
+  // Build team list
   type TeamMeta = { id: string; clubName: string; teamName: string; fullName: string }
   const teams: TeamMeta[] = []
   if (scorecard?.home_team_id) {
@@ -155,7 +178,7 @@ export default async function ScorecardPage({
       id: scorecard.home_team_id,
       clubName: scorecard.home_club_name ?? 'Home',
       teamName: scorecard.home_team_name ?? '',
-      fullName: fullName(scorecard.home_club_name, scorecard.home_team_name, 'Home'),
+      fullName: fullTeamName(scorecard.home_club_name, scorecard.home_team_name, 'Home'),
     })
   }
   if (scorecard?.away_team_id) {
@@ -163,11 +186,10 @@ export default async function ScorecardPage({
       id: scorecard.away_team_id,
       clubName: scorecard.away_club_name ?? 'Away',
       teamName: scorecard.away_team_name ?? '',
-      fullName: fullName(scorecard.away_club_name, scorecard.away_team_name, 'Away'),
+      fullName: fullTeamName(scorecard.away_club_name, scorecard.away_team_name, 'Away'),
     })
   }
 
-  // Which team batted first → that innings shown first
   const battedFirstId = scorecard?.batted_first_team_id ?? null
   const orderedTeams = [...teams].sort((a, b) => {
     if (battedFirstId && a.id === battedFirstId) return -1
@@ -175,7 +197,6 @@ export default async function ScorecardPage({
     return 0
   })
 
-  // Captain/keeper IDs by team_id (for the (c) and † markers)
   const teamMeta: Record<string, { captainId: string | null; keeperId: string | null }> = {}
   if (scorecard?.home_team_id) {
     teamMeta[scorecard.home_team_id] = {
@@ -190,7 +211,6 @@ export default async function ScorecardPage({
     }
   }
 
-  // Extras + FoW per team (jsonb keyed by team_batting_id)
   const extrasByTeam = (scorecard?.extras ?? {}) as Record<string, NonNullable<InningsView['extras']>>
   const fowByTeam = (scorecard?.fow ?? {}) as Record<string, InningsView['fow']>
 
@@ -199,7 +219,6 @@ export default async function ScorecardPage({
     const batRows = batByTeam.get(battingTeam.id) ?? []
     const bowlRows = other ? bowlByTeam.get(other.id) ?? [] : []
 
-    // Use authoritative totals from scorecard when the team is ours/opp, else derive
     const isOurs = scorecard?.our_team_id === battingTeam.id
     const totalRuns = isOurs
       ? scorecard?.our_runs ?? sumRuns(batRows)
@@ -208,17 +227,14 @@ export default async function ScorecardPage({
       ? scorecard?.our_wickets ?? countDismissals(batRows)
       : scorecard?.opp_wickets ?? countDismissals(batRows)
     const totalOvers = isOurs
-      ? (scorecard?.our_overs ?? null)
-      : (scorecard?.opp_overs ?? null)
-
-    // "SLCC batting" / "Chiddingstone batting" — keep short for the tab
-    const tabLabel = `${battingTeam.clubName} batting`
+      ? scorecard?.our_overs ?? null
+      : scorecard?.opp_overs ?? null
 
     return {
       key: battingTeam.id,
       battingTeam: battingTeam.fullName,
       bowlingTeam: other?.fullName ?? 'Bowling',
-      shortTab: tabLabel,
+      shortTab: `${battingTeam.clubName} batting`,
       totalRuns,
       totalWickets,
       totalOvers,
@@ -233,186 +249,572 @@ export default async function ScorecardPage({
     }
   })
 
-  const weWon = fixture.result_text === 'Won'
-  const weLost = fixture.result_text === 'Lost'
-
-  const resultBadgeClass = weWon
-    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-    : weLost
-      ? 'bg-rose-50 text-rose-700 border-rose-200'
-      : 'bg-gray-50 text-gray-600 border-gray-200'
-
-  // Tab-default: show OUR batting first on past matches (most relevant to visitors of this site)
   const ourBatIdx = views.findIndex((v) => v.key === scorecard?.our_team_id)
   const defaultIdx = ourBatIdx >= 0 ? ourBatIdx : 0
 
+  const isPast = fixture.match_date < todayLondon()
+  const hasScorecard = scorecard && views.length > 0
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="mb-4">
-        <Link href={`/fixtures?season=${fixture.season}`} className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold no-underline">
-          ← Back to {fixture.season} fixtures
-        </Link>
-      </div>
-
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
-        <div>
-          <div className="text-xs text-gray-400 font-semibold uppercase tracking-wider">
-            {fmtFullDate(fixture.match_date)}
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mt-1">vs {fixture.opponent}</h1>
-          <div className="text-sm text-gray-500 mt-0.5">{fixture.venue}</div>
-          <div className="flex items-center gap-2 mt-2">
-            <span
-              className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${
-                fixture.home_away === 'H'
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : 'bg-sky-50 text-sky-700 border-sky-200'
-              }`}
-            >
-              {fixture.home_away === 'H' ? 'Home' : 'Away'}
-            </span>
-            {fixture.competition && <span className="text-xs text-gray-400">{fixture.competition}</span>}
-            <Link
-              href={`/clubs/${clubSlug(fixture.opponent)}`}
-              className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold no-underline transition-colors"
-            >
-              All results vs {fixture.opponent} →
-            </Link>
-          </div>
-        </div>
-        {fixture.result_text && (
-          <div className={`text-sm font-bold px-3 py-1.5 rounded-lg border ${resultBadgeClass}`}>
-            {fixture.result_text}
-          </div>
-        )}
-      </div>
-
-      {/* Toss / format / scorer notes */}
-      {scorecard && (views.length > 0 || scorecard.toss_won_by_team_id || scorecard.batted_first_team_id || scorecard.match_notes) && (
-        <div className="bg-gray-50 rounded-xl border border-gray-100 p-4 mb-6 text-sm text-gray-600">
-          {/* Score summary — both innings, batting-first order, OUR row highlighted */}
-          {views.length > 0 && (
-            <div className="mb-3 pb-3 border-b border-gray-200 space-y-1">
-              {views.map((v) => {
-                const isOurs = v.key === scorecard?.our_team_id
-                return (
-                  <div key={v.key} className="flex items-baseline justify-between gap-3">
-                    <span className={`text-sm ${isOurs ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>
-                      {v.battingTeam}
-                    </span>
-                    <span className={`font-mono text-sm tabular-nums ${isOurs ? 'font-bold text-gray-900' : 'text-gray-700'}`}>
-                      {v.totalRuns}/{v.totalWickets}
-                      {v.totalOvers != null && v.totalOvers > 0 && (
-                        <span className="text-gray-400 font-normal ml-1.5">({formatOvers(v.totalOvers)} ov)</span>
-                      )}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-          {scorecard.toss_won_by_team_id && (
-            <div>
-              <span className="font-semibold text-gray-700">
-                {teams.find((t) => t.id === scorecard.toss_won_by_team_id)?.fullName ?? 'Unknown'}
-              </span>{' '}
-              won the toss.
-            </div>
-          )}
-          {scorecard.batted_first_team_id && (
-            <div className="text-xs text-gray-400 mt-0.5">
-              <span className="font-medium">
-                {teams.find((t) => t.id === scorecard.batted_first_team_id)?.fullName ?? 'Unknown'}
-              </span>{' '}
-              batted first.
-            </div>
-          )}
-          {scorecard.no_of_overs && (
-            <div className="text-xs text-gray-400 mt-0.5">{scorecard.no_of_overs} overs per side.</div>
-          )}
-          {scorecard.match_notes && (
-            <details className="mt-3 pt-3 border-t border-gray-200 text-sm group">
-              <summary className="cursor-pointer text-emerald-700 hover:text-emerald-800 font-semibold text-xs uppercase tracking-wider list-none flex items-center gap-1">
-                <span className="text-gray-300 group-open:rotate-90 transition-transform inline-block w-3">▸</span>
-                Match flow & milestones
-              </summary>
-              <div
-                className="mt-3 text-xs text-gray-700 leading-relaxed font-mono whitespace-pre-line"
-                dangerouslySetInnerHTML={{
-                  __html: sanitiseMatchNotes(scorecard.match_notes),
-                }}
-              />
-            </details>
-          )}
-        </div>
-      )}
-
-      {/* Innings tabs + cards */}
-      {views.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
-          <p className="text-lg font-medium">No scorecard data available yet.</p>
-          <p className="text-sm mt-1">Scorecards sync within a day or two of the match.</p>
-          {pcMatchId && (
-            <a
-              href={`https://stlawrence.play-cricket.com/website/results/${pcMatchId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block mt-4 text-xs text-emerald-700 hover:text-emerald-800 font-semibold no-underline"
-            >
-              View on Play-Cricket →
-            </a>
-          )}
-        </div>
-      ) : (
-        <ScorecardTabs views={views} defaultIndex={defaultIdx} />
-      )}
-
-      {pcMatchId && views.length > 0 && (
-        <div className="text-center mt-8 pt-6 border-t border-gray-100">
-          <a
-            href={`https://stlawrence.play-cricket.com/website/results/${pcMatchId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-gray-500 hover:text-emerald-700 font-semibold no-underline"
+    <div style={{ fontFamily: sansTight, color: C_INK }}>
+      {/* Hero header — dark green band */}
+      <div style={{ background: C_GREEN, color: '#fff', padding: '40px 32px 36px' }}>
+        <div style={{ maxWidth: 1240, margin: '0 auto' }}>
+          {/* Back link */}
+          <Link
+            href={`/fixtures?season=${fixture.season}`}
+            style={{
+              fontFamily: mono,
+              fontSize: 10,
+              letterSpacing: 2,
+              textTransform: 'uppercase',
+              color: 'rgba(255,255,255,.5)',
+              textDecoration: 'none',
+              fontWeight: 600,
+            }}
           >
-            View on Play-Cricket →
-          </a>
+            ← {fixture.season} Fixtures
+          </Link>
+
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'flex-end',
+              justifyContent: 'space-between',
+              gap: 24,
+              marginTop: 20,
+            }}
+          >
+            <div style={{ flex: '1 1 340px', minWidth: 0 }}>
+              {/* Date kicker */}
+              <div
+                style={{
+                  fontFamily: mono,
+                  fontSize: 11,
+                  letterSpacing: 3,
+                  textTransform: 'uppercase',
+                  color: C_RED,
+                  fontWeight: 700,
+                  marginBottom: 10,
+                }}
+              >
+                — {fmtFullDate(fixture.match_date)}
+              </div>
+
+              {/* Big opponent headline */}
+              <h1
+                style={{
+                  fontFamily: display,
+                  fontSize: 'clamp(32px, 6vw, 72px)',
+                  fontWeight: 400,
+                  fontStyle: 'italic',
+                  lineHeight: 0.92,
+                  letterSpacing: -2,
+                  color: '#fff',
+                  margin: 0,
+                }}
+              >
+                <span style={{ fontStyle: 'normal', opacity: 0.55, fontWeight: 300 }}>v.</span>{' '}
+                {fixture.opponent}
+              </h1>
+
+              {/* Chips row */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  gap: 12,
+                  marginTop: 20,
+                }}
+              >
+                <CHomeAwayChip homeAway={fixture.home_away} />
+                {fixture.competition && (
+                  <span
+                    style={{
+                      fontFamily: mono,
+                      fontSize: 11,
+                      letterSpacing: 2,
+                      textTransform: 'uppercase',
+                      color: 'rgba(255,255,255,.55)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {fixture.competition}
+                  </span>
+                )}
+                <Link
+                  href={`/clubs/${clubSlug(fixture.opponent)}`}
+                  style={{
+                    fontFamily: mono,
+                    fontSize: 11,
+                    letterSpacing: 1.5,
+                    textTransform: 'uppercase',
+                    color: 'rgba(255,255,255,.5)',
+                    textDecoration: 'none',
+                    fontWeight: 600,
+                  }}
+                >
+                  All results vs {fixture.opponent} →
+                </Link>
+              </div>
+            </div>
+
+            {/* Result pill (past) or date stack (upcoming) */}
+            <div style={{ flexShrink: 0 }}>
+              {fixture.result_text ? (
+                <div>
+                  <div
+                    style={{
+                      fontFamily: display,
+                      fontSize: 'clamp(40px, 7vw, 80px)',
+                      fontWeight: 500,
+                      fontStyle: 'italic',
+                      lineHeight: 1,
+                      letterSpacing: -2,
+                      color:
+                        fixture.result_text === 'Won'
+                          ? '#7ee8aa'
+                          : fixture.result_text === 'Lost'
+                          ? '#f89ea2'
+                          : 'rgba(255,255,255,.7)',
+                    }}
+                  >
+                    {fixture.result_text}.
+                  </div>
+                </div>
+              ) : (
+                <div style={{ color: '#fff' }}>
+                  <div
+                    style={{
+                      fontFamily: mono,
+                      fontSize: 10,
+                      letterSpacing: 2,
+                      textTransform: 'uppercase',
+                      color: C_RED,
+                      fontWeight: 700,
+                      marginBottom: 8,
+                    }}
+                  >
+                    Date
+                  </div>
+                  <CDateStack dateStr={fixture.match_date} />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      )}
+      </div>
+
+      {/* Body */}
+      <div style={{ maxWidth: 1240, margin: '0 auto', padding: '48px 32px' }}>
+        <div className="detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 40, alignItems: 'start' }}>
+          {/* Main column */}
+          <div>
+            {/* PAST WITH SCORECARD */}
+            {isPast && hasScorecard && (
+              <>
+                {/* Score summary block */}
+                <div
+                  style={{
+                    background: '#fff',
+                    border: `1px solid ${C_RULE}`,
+                    padding: '20px 24px',
+                    marginBottom: 32,
+                  }}
+                >
+                  {/* Score rows */}
+                  {views.map((v) => {
+                    const isOurs = v.key === scorecard?.our_team_id
+                    return (
+                      <div
+                        key={v.key}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'baseline',
+                          justifyContent: 'space-between',
+                          padding: '10px 0',
+                          borderBottom: `1px dashed ${C_RULE}`,
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontFamily: display,
+                            fontSize: isOurs ? 18 : 16,
+                            fontWeight: isOurs ? 600 : 400,
+                            color: isOurs ? C_INK : '#666',
+                          }}
+                        >
+                          {v.battingTeam}
+                        </div>
+                        <div
+                          style={{
+                            fontFamily: mono,
+                            fontSize: isOurs ? 20 : 17,
+                            fontWeight: 700,
+                            color: isOurs ? C_INK : '#888',
+                          }}
+                        >
+                          {v.totalRuns}
+                          <span style={{ color: '#bbb' }}>/{v.totalWickets}</span>
+                          {v.totalOvers != null && v.totalOvers > 0 && (
+                            <span
+                              style={{
+                                fontFamily: mono,
+                                fontSize: 12,
+                                color: '#aaa',
+                                fontWeight: 400,
+                                marginLeft: 6,
+                              }}
+                            >
+                              ({formatOvers(v.totalOvers)} ov)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {/* Toss / format notes */}
+                  <div style={{ paddingTop: 14, fontSize: 13, color: '#888', lineHeight: 1.7 }}>
+                    {scorecard.toss_won_by_team_id && (
+                      <div>
+                        <span style={{ color: '#555', fontWeight: 600 }}>
+                          {teams.find((t) => t.id === scorecard.toss_won_by_team_id)?.fullName ?? 'Unknown'}
+                        </span>{' '}
+                        won the toss.
+                      </div>
+                    )}
+                    {scorecard.batted_first_team_id && (
+                      <div>
+                        <span style={{ color: '#555', fontWeight: 600 }}>
+                          {teams.find((t) => t.id === scorecard.batted_first_team_id)?.fullName ?? 'Unknown'}
+                        </span>{' '}
+                        batted first.
+                      </div>
+                    )}
+                    {scorecard.no_of_overs && (
+                      <div>{scorecard.no_of_overs} overs per side.</div>
+                    )}
+                  </div>
+
+                  {/* Match notes */}
+                  {scorecard.match_notes && (
+                    <details style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${C_RULE}` }}>
+                      <summary
+                        style={{
+                          fontFamily: mono,
+                          fontSize: 10,
+                          letterSpacing: 2,
+                          textTransform: 'uppercase',
+                          color: C_RED,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          listStyle: 'none',
+                        }}
+                      >
+                        Match flow &amp; milestones ▸
+                      </summary>
+                      <div
+                        style={{
+                          marginTop: 12,
+                          fontSize: 12,
+                          color: '#666',
+                          lineHeight: 1.7,
+                          fontFamily: mono,
+                          whiteSpace: 'pre-line',
+                        }}
+                        dangerouslySetInnerHTML={{
+                          __html: sanitiseMatchNotes(scorecard.match_notes),
+                        }}
+                      />
+                    </details>
+                  )}
+                </div>
+
+                {/* Innings tabs */}
+                <CScorecardTabs views={views} defaultIndex={defaultIdx} />
+              </>
+            )}
+
+            {/* PAST WITHOUT SCORECARD */}
+            {isPast && !hasScorecard && (
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '64px 32px',
+                  border: `1px dashed ${C_RULE}`,
+                  color: '#aaa',
+                }}
+              >
+                <div style={{ fontFamily: display, fontSize: 28, fontStyle: 'italic' }}>
+                  Scorecard not yet available.
+                </div>
+                <div style={{ fontSize: 14, marginTop: 8 }}>
+                  Scorecards sync within a day or two of the match.
+                </div>
+                {pcMatchId && (
+                  <a
+                    href={`https://stlawrence.play-cricket.com/website/results/${pcMatchId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-block',
+                      marginTop: 20,
+                      fontFamily: mono,
+                      fontSize: 11,
+                      letterSpacing: 2,
+                      textTransform: 'uppercase',
+                      color: C_RED,
+                      textDecoration: 'none',
+                      fontWeight: 700,
+                    }}
+                  >
+                    View on Play-Cricket →
+                  </a>
+                )}
+              </div>
+            )}
+
+            {/* UPCOMING */}
+            {!isPast && (
+              <div>
+                {/* Meet / start times */}
+                {(fixture.start_time || fixture.meet_time) && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 32,
+                      background: C_GREEN,
+                      padding: '24px 28px',
+                      marginBottom: 24,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    {fixture.start_time && (
+                      <CBigNumber
+                        label="Start"
+                        value={fixture.start_time.slice(0, 5)}
+                        color="#fff"
+                        labelColor="rgba(255,255,255,.5)"
+                      />
+                    )}
+                    {fixture.meet_time && (
+                      <CBigNumber
+                        label="Meet"
+                        value={fixture.meet_time.slice(0, 5)}
+                        color="#fff"
+                        labelColor="rgba(255,255,255,.5)"
+                      />
+                    )}
+                    <CBigNumber
+                      label="Venue"
+                      value={fixture.home_away === 'H' ? 'Home' : 'Away'}
+                      small={fixture.home_away === 'H' ? 'Bitchet Green' : fixture.venue}
+                      color="#fff"
+                      labelColor="rgba(255,255,255,.5)"
+                    />
+                  </div>
+                )}
+
+                {/* Ground + map */}
+                {fixture.venue && (
+                  <div
+                    style={{
+                      background: '#fff',
+                      border: `1px solid ${C_RULE}`,
+                      marginBottom: 24,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div style={{ padding: '18px 22px' }}>
+                      <div
+                        style={{
+                          fontFamily: mono,
+                          fontSize: 10,
+                          letterSpacing: 2.5,
+                          textTransform: 'uppercase',
+                          color: '#aaa',
+                          fontWeight: 600,
+                          marginBottom: 6,
+                        }}
+                      >
+                        Ground
+                      </div>
+                      <div style={{ fontFamily: display, fontSize: 20, fontWeight: 500 }}>
+                        {fixture.venue}
+                      </div>
+                    </div>
+                    {fixture.lat && fixture.lng && (
+                      <iframe
+                        title="Ground map"
+                        width="100%"
+                        height="260"
+                        style={{ border: 0, display: 'block' }}
+                        loading="lazy"
+                        src={`https://maps.google.com/maps?q=${fixture.lat},${fixture.lng}&z=14&output=embed`}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div>
+            {/* H2H card for upcoming */}
+            {!isPast && (
+              <div
+                style={{
+                  background: '#fff',
+                  border: `1px solid ${C_RULE}`,
+                  padding: '20px 22px',
+                  marginBottom: 16,
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: mono,
+                    fontSize: 10,
+                    letterSpacing: 2.5,
+                    textTransform: 'uppercase',
+                    color: '#aaa',
+                    fontWeight: 600,
+                    marginBottom: 14,
+                  }}
+                >
+                  Head to Head
+                </div>
+                <div style={{ fontFamily: display, fontSize: 20, fontWeight: 500, marginBottom: 6 }}>
+                  <CVs /> {fixture.opponent}
+                </div>
+                <Link
+                  href={`/clubs/${clubSlug(fixture.opponent)}`}
+                  style={{
+                    fontFamily: mono,
+                    fontSize: 11,
+                    letterSpacing: 1.5,
+                    textTransform: 'uppercase',
+                    color: C_RED,
+                    textDecoration: 'none',
+                    fontWeight: 700,
+                  }}
+                >
+                  View all previous meetings →
+                </Link>
+              </div>
+            )}
+
+            {/* Match info card */}
+            <div
+              style={{
+                background: '#fff',
+                border: `1px solid ${C_RULE}`,
+                padding: '20px 22px',
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: mono,
+                  fontSize: 10,
+                  letterSpacing: 2.5,
+                  textTransform: 'uppercase',
+                  color: '#aaa',
+                  fontWeight: 600,
+                  marginBottom: 14,
+                  borderBottom: `1px solid ${C_RULE}`,
+                  paddingBottom: 10,
+                }}
+              >
+                Match Info
+              </div>
+              {[
+                { label: 'Date', value: fmtShortDate(fixture.match_date) },
+                { label: 'Season', value: String(fixture.season) },
+                fixture.competition ? { label: 'Competition', value: fixture.competition } : null,
+                { label: 'Venue', value: fixture.venue },
+                {
+                  label: 'Home/Away',
+                  value: fixture.home_away === 'H' ? 'Home' : 'Away',
+                },
+              ]
+                .filter(Boolean)
+                .map((item) =>
+                  item ? (
+                    <div
+                      key={item.label}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'baseline',
+                        gap: 12,
+                        padding: '8px 0',
+                        borderBottom: `1px dashed ${C_RULE}`,
+                        fontSize: 13,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: mono,
+                          fontSize: 10,
+                          letterSpacing: 1.5,
+                          textTransform: 'uppercase',
+                          color: '#aaa',
+                          fontWeight: 600,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {item.label}
+                      </span>
+                      <span
+                        style={{
+                          color: C_INK,
+                          fontWeight: 500,
+                          textAlign: 'right',
+                        }}
+                      >
+                        {item.value}
+                      </span>
+                    </div>
+                  ) : null,
+                )}
+            </div>
+
+            {/* Play-Cricket link */}
+            {pcMatchId && (
+              <div style={{ marginTop: 16, textAlign: 'center' }}>
+                <a
+                  href={`https://stlawrence.play-cricket.com/website/results/${pcMatchId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontFamily: mono,
+                    fontSize: 11,
+                    letterSpacing: 2,
+                    textTransform: 'uppercase',
+                    color: '#aaa',
+                    textDecoration: 'none',
+                    fontWeight: 600,
+                  }}
+                >
+                  View on Play-Cricket →
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        @media (max-width: 860px) {
+          .detail-grid { grid-template-columns: 1fr !important; }
+        }
+        @media (max-width: 640px) {
+          .detail-grid { padding: 24px 16px !important; gap: 24px !important; }
+        }
+      `}</style>
     </div>
   )
-}
-
-function fullName(club: string | null | undefined, team: string | null | undefined, fallback: string) {
-  if (club && team) return `${club} - ${team}`
-  return team || club || fallback
-}
-
-function sumRuns(rows: ScBat[]): number {
-  return rows.reduce((s, r) => s + (r.runs ?? 0), 0)
-}
-
-function countDismissals(rows: ScBat[]): number {
-  return rows.filter((r) => {
-    const h = (r.how_out ?? '').toLowerCase()
-    return h && h !== 'not out' && h !== 'did not bat'
-  }).length
-}
-
-// match_notes from PC arrives as HTML (br tags, bold tags). Sanitise to a small
-// allowlist (br + b only) — anything else is escaped. Source is the scorer's text
-// uploaded via PCS, which is not user-controllable from our site, but we still
-// belt-and-braces this since it lands in dangerouslySetInnerHTML.
-function sanitiseMatchNotes(raw: string): string {
-  // Escape everything first
-  const esc = raw
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-  // Re-allow <br>, <br/>, <br /> and <b>...</b>
-  return esc
-    .replace(/&lt;br\s*\/?&gt;/gi, '<br/>')
-    .replace(/&lt;b&gt;/gi, '<b class="text-gray-900 font-semibold">')
-    .replace(/&lt;\/b&gt;/gi, '</b>')
 }

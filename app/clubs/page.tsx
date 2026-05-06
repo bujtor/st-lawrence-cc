@@ -1,6 +1,23 @@
 import { supabase } from '@/lib/supabase'
 import { clubSlug } from '@/lib/slug'
 import Link from 'next/link'
+import {
+  CKicker,
+  CPageHeader,
+  CCard,
+  CFormChip,
+  CMonoLabel,
+  CVs,
+  CContainer,
+  C_GREEN,
+  C_GREEN_LT,
+  C_RED,
+  C_INK,
+  C_RULE,
+  display,
+  mono,
+  sansTight,
+} from '@/components/c/primitives'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,30 +29,43 @@ type ClubRecord = {
   drew: number
   tied: number
   abandoned: number
+  lastDate: string | null
+  form: Array<'W' | 'L' | 'T' | 'D' | 'A' | '?'>
 }
 
-function fmtDate(d: string): string {
-  const dt = new Date(d + 'T00:00:00')
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  return `${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()}`
+function resultLetter(r: string | null): 'W' | 'L' | 'T' | 'D' | 'A' | '?' {
+  if (r === 'Won') return 'W'
+  if (r === 'Lost') return 'L'
+  if (r === 'Tied') return 'T'
+  if (r === 'Drew') return 'D'
+  if (r === 'Abandoned') return 'A'
+  return '?'
 }
 
 export default async function ClubsIndexPage() {
-  // Pull all fixtures with a result to build H2H records
   const { data: fixtures } = await supabase
     .from('fixtures')
     .select('opponent, result_text, match_date')
     .not('result_text', 'is', null)
     .order('match_date', { ascending: false })
 
-  // Aggregate by opponent
   const clubMap = new Map<string, ClubRecord>()
 
   for (const f of fixtures ?? []) {
     const name = f.opponent ?? ''
     if (!name) continue
     if (!clubMap.has(name)) {
-      clubMap.set(name, { opponent: name, played: 0, won: 0, lost: 0, drew: 0, tied: 0, abandoned: 0 })
+      clubMap.set(name, {
+        opponent: name,
+        played: 0,
+        won: 0,
+        lost: 0,
+        drew: 0,
+        tied: 0,
+        abandoned: 0,
+        lastDate: null,
+        form: [],
+      })
     }
     const rec = clubMap.get(name)!
     rec.played++
@@ -45,84 +75,220 @@ export default async function ClubsIndexPage() {
     else if (r === 'Drew') rec.drew++
     else if (r === 'Tied') rec.tied++
     else if (r === 'Abandoned') rec.abandoned++
+    if (!rec.lastDate) rec.lastDate = f.match_date
+    if (rec.form.length < 5) rec.form.push(resultLetter(f.result_text))
   }
 
-  const clubs = Array.from(clubMap.values())
-    .sort((a, b) => b.played - a.played || a.opponent.localeCompare(b.opponent))
-
-  // Get last match date per opponent for display
-  const lastMatchByOpponent = new Map<string, string>()
-  for (const f of fixtures ?? []) {
-    if (!f.opponent) continue
-    if (!lastMatchByOpponent.has(f.opponent)) {
-      lastMatchByOpponent.set(f.opponent, f.match_date)
-    }
-  }
+  // Sort by win% desc, then most played
+  const clubs = Array.from(clubMap.values()).sort((a, b) => {
+    const wA = a.played > 0 ? a.won / a.played : 0
+    const wB = b.played > 0 ? b.won / b.played : 0
+    return wB - wA || b.played - a.played || a.opponent.localeCompare(b.opponent)
+  })
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-extrabold text-gray-900">Opponents</h1>
-        <p className="text-sm text-gray-400 mt-1">All-time head-to-head records</p>
+    <div style={{ fontFamily: sansTight, color: C_INK }}>
+      {/* Dark header band */}
+      <div style={{ background: C_GREEN, color: '#fff' }}>
+        <CContainer padding="56px 32px 48px">
+          <CKicker color={C_RED}>Opponents · By Record</CKicker>
+          <h1
+            style={{
+              fontFamily: display,
+              fontSize: 'clamp(48px, 8vw, 96px)',
+              fontWeight: 400,
+              fontStyle: 'italic',
+              lineHeight: 0.92,
+              letterSpacing: -3,
+              color: '#fff',
+              margin: '14px 0 0',
+            }}
+          >
+            Head-to-head.
+          </h1>
+          <p
+            style={{
+              marginTop: 18,
+              fontSize: 15,
+              color: 'rgba(255,255,255,.65)',
+              maxWidth: 520,
+              lineHeight: 1.5,
+            }}
+          >
+            All-time records against every club we&rsquo;ve faced. Sorted by win percentage, most played first on ties.
+          </p>
+        </CContainer>
       </div>
 
-      {clubs.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <p className="text-lg font-medium">No completed matches yet.</p>
-          <p className="text-sm mt-1">H2H records appear once scorecards are synced.</p>
-        </div>
-      ) : (
-        <div className="grid gap-3">
-          {clubs.map((club) => {
-            const slug = clubSlug(club.opponent)
-            const lastDate = lastMatchByOpponent.get(club.opponent)
-            const winRate = club.played > 0 ? Math.round((club.won / club.played) * 100) : 0
-
-            return (
-              <Link
-                key={club.opponent}
-                href={`/clubs/${slug}`}
-                className="group flex items-center justify-between bg-white rounded-xl border border-gray-100 px-5 py-4 no-underline hover:border-emerald-200 hover:bg-emerald-50/30 transition-all"
+      <CContainer padding="48px 32px 80px">
+        {clubs.length === 0 ? (
+          <CCard padding="40px 32px">
+            <div style={{ textAlign: 'center', color: '#888', fontSize: 15 }}>
+              <div
+                style={{
+                  fontFamily: display,
+                  fontSize: 36,
+                  fontStyle: 'italic',
+                  marginBottom: 8,
+                  color: '#bbb',
+                }}
               >
-                <div>
-                  <div className="font-semibold text-gray-900 group-hover:text-emerald-700 transition-colors">
-                    {club.opponent}
-                  </div>
-                  {lastDate && (
-                    <div className="text-xs text-gray-400 mt-0.5">Last played {fmtDate(lastDate)}</div>
-                  )}
-                </div>
+                Nothing yet.
+              </div>
+              H2H records appear once scorecards are synced from Play-Cricket.
+            </div>
+          </CCard>
+        ) : (
+          <>
+            {/* Column header */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 56px 56px 56px 56px 100px',
+                gap: 12,
+                padding: '0 16px 10px',
+                borderBottom: `2px solid ${C_INK}`,
+              }}
+              className="clubs-row-hide-mobile"
+            >
+              <CMonoLabel>Opponent</CMonoLabel>
+              <CMonoLabel>P</CMonoLabel>
+              <CMonoLabel>W</CMonoLabel>
+              <CMonoLabel>L</CMonoLabel>
+              <CMonoLabel>W%</CMonoLabel>
+              <CMonoLabel>Form (last 5)</CMonoLabel>
+            </div>
 
-                <div className="flex items-center gap-6 flex-shrink-0">
-                  {/* W/L summary chips */}
-                  <div className="hidden sm:flex items-center gap-2">
-                    <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-                      {club.won}W
-                    </span>
-                    <span className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded">
-                      {club.lost}L
-                    </span>
-                    {club.drew > 0 && (
-                      <span className="text-xs font-bold text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded">
-                        {club.drew}D
-                      </span>
+            {clubs.map((club, i) => {
+              const slug = clubSlug(club.opponent)
+              const winPct = club.played > 0 ? Math.round((club.won / club.played) * 100) : 0
+              const isTop = i === 0
+
+              return (
+                <Link
+                  key={club.opponent}
+                  href={`/clubs/${slug}`}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 56px 56px 56px 56px 100px',
+                    gap: 12,
+                    alignItems: 'center',
+                    padding: '16px 16px',
+                    borderBottom: `1px dashed ${C_RULE}`,
+                    textDecoration: 'none',
+                    color: C_INK,
+                    background: isTop ? 'rgba(13,59,39,.04)' : 'transparent',
+                    transition: 'background 0.15s',
+                  }}
+                  className="clubs-row"
+                >
+                  {/* Opponent name */}
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontFamily: display,
+                        fontSize: 22,
+                        fontWeight: 500,
+                        letterSpacing: -0.5,
+                        lineHeight: 1.1,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      <CVs /> {club.opponent}
+                    </div>
+                    {club.lastDate && (
+                      <div
+                        style={{
+                          fontFamily: mono,
+                          fontSize: 10,
+                          color: '#999',
+                          letterSpacing: 1.5,
+                          textTransform: 'uppercase',
+                          marginTop: 3,
+                        }}
+                      >
+                        Last: {new Date(club.lastDate + 'T00:00:00').toLocaleDateString('en-GB', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </div>
                     )}
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold text-gray-800">
-                      P{club.played}
-                    </div>
-                    <div className="text-xs text-gray-400">{winRate}% wins</div>
+
+                  {/* P */}
+                  <div
+                    style={{
+                      fontFamily: mono,
+                      fontSize: 16,
+                      fontWeight: 600,
+                      color: '#444',
+                    }}
+                  >
+                    {club.played}
                   </div>
-                  <svg className="w-4 h-4 text-gray-300 group-hover:text-emerald-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </Link>
-            )
-          })}
-        </div>
-      )}
+
+                  {/* W */}
+                  <div
+                    style={{
+                      fontFamily: mono,
+                      fontSize: 16,
+                      fontWeight: 700,
+                      color: C_GREEN_LT,
+                    }}
+                  >
+                    {club.won}
+                  </div>
+
+                  {/* L */}
+                  <div
+                    style={{
+                      fontFamily: mono,
+                      fontSize: 16,
+                      fontWeight: 700,
+                      color: C_RED,
+                    }}
+                  >
+                    {club.lost}
+                  </div>
+
+                  {/* W% */}
+                  <div
+                    style={{
+                      fontFamily: mono,
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: winPct >= 50 ? C_GREEN_LT : winPct === 0 ? C_RED : '#888',
+                    }}
+                  >
+                    {winPct}%
+                  </div>
+
+                  {/* Form chips */}
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {club.form.map((letter, fi) => (
+                      <CFormChip key={fi} letter={letter} size={24} />
+                    ))}
+                  </div>
+                </Link>
+              )
+            })}
+          </>
+        )}
+      </CContainer>
+
+      <style>{`
+        @media (max-width: 640px) {
+          .clubs-row {
+            grid-template-columns: 1fr auto !important;
+            grid-template-rows: auto auto;
+          }
+          .clubs-row-hide-mobile { display: none !important; }
+        }
+        .clubs-row:hover { background: rgba(13,59,39,.06) !important; }
+      `}</style>
     </div>
   )
 }

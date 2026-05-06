@@ -2,6 +2,19 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { formatOvers } from '@/lib/play-cricket'
+import {
+  CKicker,
+  CCard,
+  CContainer,
+  C_GREEN,
+  C_GREEN_LT,
+  C_RED,
+  C_INK,
+  C_RULE,
+  display,
+  mono,
+  sansTight,
+} from '@/components/c/primitives'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +40,7 @@ function fmtEcon(runs: number, overs: number) {
   return (runs / overs).toFixed(2)
 }
 
-export default async function PlayerPage({
+export default async function CPlayerPage({
   params,
 }: {
   params: Promise<{ id: string }>
@@ -36,15 +49,12 @@ export default async function PlayerPage({
   const memberId = parseInt(id, 10)
   if (isNaN(memberId)) notFound()
 
-  // Resolve player from our roster first (preferred — gives canonical name).
   const { data: playerRows } = await supabase
     .from('players')
     .select('name, play_cricket_member_id')
     .eq('play_cricket_member_id', memberId)
     .limit(1)
 
-  // All batting / bowling entries (only ours — career = innings for SLCC).
-  // Bump limit well above default for prolific career players over many seasons.
   const { data: battingAll } = await supabase
     .from('batting_entries')
     .select('match_id, season, runs, balls, how_out, bowler_name, batsman_name, innings_number')
@@ -61,14 +71,12 @@ export default async function PlayerPage({
     .order('match_id', { ascending: false })
     .limit(2000)
 
-  // Fall back to a name from the scorecard entries if the player isn't in our roster
-  // table yet (scorecard sync can land before players sync re-runs).
   const player = playerRows?.[0]
     ?? (battingAll?.[0] ? { name: battingAll[0].batsman_name ?? '?', play_cricket_member_id: memberId } : null)
     ?? (bowlingAll?.[0] ? { name: bowlingAll[0].bowler_name ?? '?', play_cricket_member_id: memberId } : null)
   if (!player) notFound()
 
-  // Scorecards for match date + opponent
+  // Scorecards
   const allMatchIds = [
     ...new Set([
       ...(battingAll ?? []).map(r => r.match_id),
@@ -95,7 +103,6 @@ export default async function PlayerPage({
       .select('match_id, home_club_name, away_club_name, our_team_id, home_team_id, away_team_id')
       .in('match_id', allMatchIds)
 
-    // match_date + fixture_id live on fixtures — look them up there
     const { data: fixRows } = await supabase
       .from('fixtures')
       .select('id, play_cricket_match_id, match_date')
@@ -133,7 +140,11 @@ export default async function PlayerPage({
     return scorecardMap.get(matchId)?.match_date ?? ''
   }
 
-  // Aggregate by season - batting (plus per-season innings list for expansion)
+  function getFixtureId(matchId: number): number | null {
+    return scorecardMap.get(matchId)?.fixture_id ?? null
+  }
+
+  // Batting aggregations by season
   type BatRow = { match_id: number; runs: number | null; balls: number | null; how_out: string | null; bowler_name: string | null }
   type SeasonBat = {
     inns: number; notOut: number; runs: number; hs: number; fifties: number; hundreds: number
@@ -146,25 +157,12 @@ export default async function PlayerPage({
     const s = row.season
     if (!batBySeason.has(s)) batBySeason.set(s, { inns: 0, notOut: 0, runs: 0, hs: 0, fifties: 0, hundreds: 0, rows: [] })
     const agg = batBySeason.get(s)!
-
-    // Always include the row in the expandable list (the user wants to see DNBs too)
-    agg.rows.push({
-      match_id: row.match_id,
-      runs: row.runs,
-      balls: row.balls,
-      how_out: row.how_out,
-      bowler_name: row.bowler_name,
-    })
-
-    // But skip DNBs from the actual batting aggregations
+    agg.rows.push({ match_id: row.match_id, runs: row.runs, balls: row.balls, how_out: row.how_out, bowler_name: row.bowler_name })
     const ho = (row.how_out ?? '').toLowerCase()
     if (!ho || ho === 'did not bat') continue
-
-    agg.inns++
-    careerInns++
+    agg.inns++; careerInns++
     const r = row.runs ?? 0
-    agg.runs += r
-    careerRuns += r
+    agg.runs += r; careerRuns += r
     if (r > agg.hs) agg.hs = r
     if (r > careerHS) careerHS = r
     if (r >= 100) { agg.hundreds++; career100s++ }
@@ -172,11 +170,11 @@ export default async function PlayerPage({
     if (ho === 'not out') { agg.notOut++; careerNO++ }
   }
 
-  // Aggregate by season - bowling (plus per-season rows)
-  type BowlRow = { match_id: number; overs: number | null; maidens: number | null; runs: number | null; wickets: number | null }
+  // Bowling aggregations by season
+  type BowlRowLocal = { match_id: number; overs: number | null; maidens: number | null; runs: number | null; wickets: number | null }
   type SeasonBowl = {
     overs: number; runs: number; wickets: number; bestWkts: number; bestRuns: number; fiveWs: number
-    rows: BowlRow[]
+    rows: BowlRowLocal[]
   }
   const bowlBySeason = new Map<number, SeasonBowl>()
   let careerWkts = 0, careerBowlRuns = 0, careerOvers = 0
@@ -189,24 +187,18 @@ export default async function PlayerPage({
     agg.overs += row.overs ?? 0
     agg.runs += row.runs ?? 0
     const w = row.wickets ?? 0
-    agg.wickets += w
     const r = row.runs ?? 0
+    agg.wickets += w
     if (w > agg.bestWkts || (w === agg.bestWkts && r < agg.bestRuns)) { agg.bestWkts = w; agg.bestRuns = r }
     if (w >= 5) agg.fiveWs++
     careerOvers += row.overs ?? 0
     careerBowlRuns += r
     careerWkts += w
     if (w > careerBestWkts || (w === careerBestWkts && r < careerBestRuns)) { careerBestWkts = w; careerBestRuns = r }
-    agg.rows.push({
-      match_id: row.match_id,
-      overs: row.overs,
-      maidens: row.maidens,
-      runs: row.runs,
-      wickets: row.wickets,
-    })
+    agg.rows.push({ match_id: row.match_id, overs: row.overs, maidens: row.maidens, runs: row.runs, wickets: row.wickets })
   }
 
-  // Catches / stumpings / run-outs for career header
+  // Fielding
   const { data: fieldingCareer } = await supabase
     .from('batting_entries')
     .select('how_out')
@@ -227,283 +219,295 @@ export default async function PlayerPage({
     ...(bowlingAll ?? []).map(r => r.match_id),
   ]).size
 
-  // Recent innings (last 10)
-  const recentBat = (battingAll ?? []).slice(0, 10)
-  // Recent bowling (last 10)
-  const recentBowl = (bowlingAll ?? []).slice(0, 10)
-
   const batSeasons = Array.from(batBySeason.keys()).sort((a, b) => b - a)
   const bowlSeasons = Array.from(bowlBySeason.keys()).sort((a, b) => b - a)
 
-  function getFixtureId(matchId: number): number | null {
-    return scorecardMap.get(matchId)?.fixture_id ?? null
+  // Stat cell helper
+  const StatTile = ({ label, value, sub }: { label: string; value: string; sub?: string }) => (
+    <div style={{ borderRight: `1px solid rgba(255,255,255,.12)`, paddingRight: 24, paddingLeft: 4 }}>
+      <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: 2.5, color: 'rgba(255,255,255,.5)', textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ fontFamily: display, fontSize: 40, fontWeight: 500, color: '#fff', lineHeight: 1, marginTop: 4 }}>{value}</div>
+      {sub && <div style={{ fontFamily: mono, fontSize: 11, color: 'rgba(255,255,255,.5)', marginTop: 4 }}>{sub}</div>}
+    </div>
+  )
+
+  const thStyle: React.CSSProperties = {
+    padding: '8px 14px',
+    fontFamily: mono,
+    fontSize: 10,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: '#999',
+    fontWeight: 600,
+    textAlign: 'right',
+    borderBottom: `1px solid ${C_RULE}`,
   }
+  const thLeftStyle: React.CSSProperties = { ...thStyle, textAlign: 'left' }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="mb-6">
-        <Link href="/stats" className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold no-underline">
-          ← Back to Stats
-        </Link>
-        <h1 className="text-2xl font-extrabold text-gray-900 mt-2">{player.name}</h1>
-        <p className="text-sm text-gray-400">Career Statistics</p>
+    <div style={{ fontFamily: sansTight, color: C_INK }}>
+      {/* Dark green header */}
+      <div style={{ background: C_GREEN, color: '#fff' }}>
+        <div style={{ maxWidth: 1240, margin: '0 auto', padding: '48px 32px 56px' }}>
+          <Link
+            href="/stats"
+            style={{
+              fontFamily: mono,
+              fontSize: 11,
+              letterSpacing: 2,
+              textTransform: 'uppercase',
+              color: 'rgba(255,255,255,.55)',
+              textDecoration: 'none',
+              fontWeight: 700,
+            }}
+          >
+            ← Statistics
+          </Link>
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: 3, color: C_RED, textTransform: 'uppercase', fontWeight: 700 }}>
+              — Player
+            </div>
+            <h1 style={{
+              fontFamily: display,
+              fontSize: 'clamp(48px, 8vw, 96px)',
+              fontWeight: 400,
+              fontStyle: 'italic',
+              lineHeight: 0.92,
+              letterSpacing: -3,
+              margin: '12px 0 0',
+            }}>
+              {player.name}.
+            </h1>
+          </div>
+
+          {/* Career stat strip */}
+          <div style={{ marginTop: 40, display: 'flex', gap: 32, flexWrap: 'wrap', paddingTop: 32, borderTop: '1px solid rgba(255,255,255,.15)' }}>
+            <StatTile label="Matches" value={String(careerMatches)} />
+            <StatTile label="Runs" value={String(careerRuns)} sub={`HS ${careerHS} · Avg ${fmtAvg(careerRuns, careerInns, careerNO)}`} />
+            <StatTile label="50s / 100s" value={`${career50s}/${career100s}`} />
+            <StatTile label="Wickets" value={String(careerWkts)} sub={`Best ${careerBestWkts}/${careerBestRuns === 999 ? 0 : careerBestRuns} · Avg ${fmtBowlAvg(careerBowlRuns, careerWkts)}`} />
+            <StatTile label="Econ" value={fmtEcon(careerBowlRuns, careerOvers)} />
+            <div style={{ paddingLeft: 4 }}>
+              <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: 2.5, color: 'rgba(255,255,255,.5)', textTransform: 'uppercase' }}>Catches</div>
+              <div style={{ fontFamily: display, fontSize: 40, fontWeight: 500, color: '#fff', lineHeight: 1, marginTop: 4 }}>{catches}</div>
+              <div style={{ fontFamily: mono, fontSize: 11, color: 'rgba(255,255,255,.5)', marginTop: 4 }}>RO {runOuts} · St {stumpings}</div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Career tiles */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-10">
-        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-          <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Matches</div>
-          <div className="text-2xl font-extrabold text-gray-900">{careerMatches}</div>
-        </div>
-        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-          <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Runs</div>
-          <div className="text-2xl font-extrabold text-gray-900">{careerRuns}</div>
-          <div className="text-xs text-gray-500 mt-1">HS {careerHS} · Avg {fmtAvg(careerRuns, careerInns, careerNO)}</div>
-        </div>
-        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-          <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1">50s / 100s</div>
-          <div className="text-2xl font-extrabold text-gray-900">{career50s}/{career100s}</div>
-        </div>
-        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-          <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Wickets</div>
-          <div className="text-2xl font-extrabold text-gray-900">{careerWkts}</div>
-          <div className="text-xs text-gray-500 mt-1">
-            Best {careerBestWkts}/{careerBestRuns === 999 ? 0 : careerBestRuns} · Avg {fmtBowlAvg(careerBowlRuns, careerWkts)}
-          </div>
-        </div>
-        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-          <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Econ</div>
-          <div className="text-2xl font-extrabold text-gray-900">{fmtEcon(careerBowlRuns, careerOvers)}</div>
-        </div>
-        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-          <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Catches</div>
-          <div className="text-2xl font-extrabold text-gray-900">{catches}</div>
-          <div className="text-xs text-gray-500 mt-1">RO {runOuts} · St {stumpings}</div>
-        </div>
-      </div>
-
-      {/* Batting season breakdown — click a season to expand innings */}
-      {batSeasons.length > 0 && (
-        <section className="mb-10">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">
-            Batting by Season
-            <span className="text-gray-300 font-normal normal-case tracking-normal ml-2">
-              · click a season to see every innings
-            </span>
-          </h2>
-          <div className="rounded-xl border border-gray-100 overflow-hidden">
-            {/* Header row */}
-            <div className="bg-gray-50 text-[10px] text-gray-400 font-semibold uppercase tracking-wider grid grid-cols-[1fr_40px_36px_56px_36px_56px_60px] gap-2 px-3 py-2">
-              <div>Season</div>
-              <div className="text-right">Inn</div>
-              <div className="text-right">NO</div>
-              <div className="text-right">Runs</div>
-              <div className="text-right">HS</div>
-              <div className="text-right">Avg</div>
-              <div className="text-right">50/100</div>
-            </div>
-            {batSeasons.map((s) => {
-              const a = batBySeason.get(s)!
-              return (
-                <details key={s} className="group border-t border-gray-50 first:border-t-0">
-                  <summary
-                    className="grid grid-cols-[1fr_40px_36px_56px_36px_56px_60px] gap-2 px-3 py-2.5 items-center text-sm cursor-pointer hover:bg-gray-50 transition-colors list-none"
-                    style={{ listStyle: 'none' }}
-                  >
-                    <div className="font-semibold text-gray-800 flex items-center gap-2">
-                      <span className="text-gray-300 group-open:rotate-90 transition-transform inline-block w-3">▸</span>
-                      {s}
-                    </div>
-                    <div className="text-right text-gray-600">{a.inns}</div>
-                    <div className="text-right text-gray-600">{a.notOut}</div>
-                    <div className="text-right font-semibold text-gray-900">{a.runs}</div>
-                    <div className="text-right text-gray-600">{a.hs}</div>
-                    <div className="text-right text-gray-600">{fmtAvg(a.runs, a.inns, a.notOut)}</div>
-                    <div className="text-right text-gray-600">{a.fifties}/{a.hundreds}</div>
-                  </summary>
-                  {/* Expanded: each innings, chronological, linking to fixture */}
-                  <div className="bg-gray-50/40 border-t border-gray-100 px-1 py-1">
-                    {a.rows
-                      .slice()
-                      .sort((x, y) => (getMatchDate(y.match_id) || '').localeCompare(getMatchDate(x.match_id) || ''))
-                      .map((row, i) => {
-                        const fid = getFixtureId(row.match_id)
-                        const isNotOut =
-                          !row.how_out || (row.how_out ?? '').toLowerCase() === 'not out'
-                        const content = (
-                          <>
-                            <div className="text-xs text-gray-400 min-w-[72px]">
-                              {getMatchDate(row.match_id) ? fmtDate(getMatchDate(row.match_id)) : '−'}
-                            </div>
-                            <div className="flex-1 text-sm text-gray-700 truncate">vs {getOpponent(row.match_id)}</div>
-                            <div className="text-sm font-semibold text-gray-900 min-w-[30px] text-right">
-                              {row.runs ?? '−'}
-                              {isNotOut && row.runs != null && <span className="ml-0.5 text-[10px] text-emerald-600">*</span>}
-                            </div>
-                            <div className="text-xs text-gray-400 truncate max-w-[140px] text-right">
-                              {isNotOut ? (
-                                <span className="text-emerald-600">not out</span>
-                              ) : (
-                                <>b {row.bowler_name ?? '−'}</>
-                              )}
-                            </div>
-                          </>
-                        )
-                        return fid ? (
-                          <Link
-                            key={i}
-                            href={`/fixtures/${fid}`}
-                            className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-white no-underline text-inherit"
-                          >
-                            {content}
-                          </Link>
-                        ) : (
-                          <div key={i} className="flex items-center justify-between gap-3 px-3 py-2">
-                            {content}
-                          </div>
-                        )
-                      })}
-                  </div>
-                </details>
-              )
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* Bowling season breakdown — click a season to expand figures */}
-      {bowlSeasons.length > 0 && (
-        <section className="mb-10">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">
-            Bowling by Season
-            <span className="text-gray-300 font-normal normal-case tracking-normal ml-2">
-              · click a season to see every spell
-            </span>
-          </h2>
-          <div className="rounded-xl border border-gray-100 overflow-hidden">
-            {/* Header row */}
-            <div className="bg-gray-50 text-[10px] text-gray-400 font-semibold uppercase tracking-wider grid grid-cols-[1fr_48px_44px_40px_56px_48px_48px_36px] gap-2 px-3 py-2">
-              <div>Season</div>
-              <div className="text-right">O</div>
-              <div className="text-right">R</div>
-              <div className="text-right">W</div>
-              <div className="text-right">Best</div>
-              <div className="text-right">Avg</div>
-              <div className="text-right">Econ</div>
-              <div className="text-right">5W</div>
-            </div>
-            {bowlSeasons.map((s) => {
-              const a = bowlBySeason.get(s)!
-              return (
-                <details key={s} className="group border-t border-gray-50 first:border-t-0">
-                  <summary
-                    className="grid grid-cols-[1fr_48px_44px_40px_56px_48px_48px_36px] gap-2 px-3 py-2.5 items-center text-sm cursor-pointer hover:bg-gray-50 transition-colors list-none"
-                    style={{ listStyle: 'none' }}
-                  >
-                    <div className="font-semibold text-gray-800 flex items-center gap-2">
-                      <span className="text-gray-300 group-open:rotate-90 transition-transform inline-block w-3">▸</span>
-                      {s}
-                    </div>
-                    <div className="text-right text-gray-600">{formatOvers(a.overs)}</div>
-                    <div className="text-right text-gray-600">{a.runs}</div>
-                    <div className="text-right font-semibold text-gray-900">{a.wickets}</div>
-                    <div className="text-right text-gray-600">{a.bestWkts}/{a.bestRuns === 999 ? 0 : a.bestRuns}</div>
-                    <div className="text-right text-gray-600">{fmtBowlAvg(a.runs, a.wickets)}</div>
-                    <div className="text-right text-gray-600">{fmtEcon(a.runs, a.overs)}</div>
-                    <div className="text-right text-gray-600">{a.fiveWs}</div>
-                  </summary>
-                  <div className="bg-gray-50/40 border-t border-gray-100 px-1 py-1">
-                    {a.rows
-                      .slice()
-                      .sort((x, y) => (getMatchDate(y.match_id) || '').localeCompare(getMatchDate(x.match_id) || ''))
-                      .map((row, i) => {
-                        const fid = getFixtureId(row.match_id)
-                        const content = (
-                          <>
-                            <div className="text-xs text-gray-400 min-w-[72px]">
-                              {getMatchDate(row.match_id) ? fmtDate(getMatchDate(row.match_id)) : '−'}
-                            </div>
-                            <div className="flex-1 text-sm text-gray-700 truncate">vs {getOpponent(row.match_id)}</div>
-                            <div className="text-sm font-mono text-gray-700 min-w-[90px] text-right">
-                              {formatOvers(row.overs ?? 0)}-{row.maidens ?? 0}-{row.runs ?? 0}-
-                              <span className="font-semibold text-gray-900">{row.wickets ?? 0}</span>
-                            </div>
-                          </>
-                        )
-                        return fid ? (
-                          <Link
-                            key={i}
-                            href={`/fixtures/${fid}`}
-                            className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-white no-underline text-inherit"
-                          >
-                            {content}
-                          </Link>
-                        ) : (
-                          <div key={i} className="flex items-center justify-between gap-3 px-3 py-2">
-                            {content}
-                          </div>
-                        )
-                      })}
-                  </div>
-                </details>
-              )
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* Recent innings */}
-      {recentBat.length > 0 && (
-        <section className="mb-10">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Recent Innings</h2>
-          <div className="rounded-xl border border-gray-100 divide-y divide-gray-50">
-            {recentBat.map((row, i) => (
-              <div key={i} className="px-4 py-3 flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors">
-                <div className="text-xs text-gray-400 min-w-[80px]">
-                  {getMatchDate(row.match_id) ? fmtDate(getMatchDate(row.match_id)) : '−'}
-                </div>
-                <div className="flex-1 text-sm text-gray-700 truncate">vs {getOpponent(row.match_id)}</div>
-                <div className="text-sm font-semibold text-gray-900 min-w-[30px] text-right">{row.runs ?? '−'}</div>
-                <div className="text-xs text-gray-400 truncate max-w-[120px]">
-                  {row.how_out === 'not out' || row.how_out === '' ? (
-                    <span className="text-emerald-600">not out</span>
-                  ) : (
-                    <>b {row.bowler_name ?? '−'}</>
-                  )}
-                </div>
+      <CContainer>
+        {/* Batting by Season */}
+        {batSeasons.length > 0 && (
+          <section style={{ marginBottom: 48 }}>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: 3, color: C_RED, textTransform: 'uppercase', fontWeight: 700 }}>— Batting</div>
+              <div style={{ fontFamily: display, fontSize: 28, fontWeight: 500, letterSpacing: -0.5, marginTop: 4 }}>
+                Season by season.
+                <span style={{ fontFamily: mono, fontSize: 11, letterSpacing: 1, color: '#aaa', textTransform: 'uppercase', fontWeight: 400, fontStyle: 'normal', marginLeft: 12 }}>
+                  click to expand innings
+                </span>
               </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Recent bowling figures */}
-      {recentBowl.length > 0 && (
-        <section className="mb-10">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Recent Bowling</h2>
-          <div className="rounded-xl border border-gray-100 divide-y divide-gray-50">
-            {recentBowl.map((row, i) => (
-              <div key={i} className="px-4 py-3 flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors">
-                <div className="text-xs text-gray-400 min-w-[80px]">
-                  {getMatchDate(row.match_id) ? fmtDate(getMatchDate(row.match_id)) : '−'}
-                </div>
-                <div className="flex-1 text-sm text-gray-700 truncate">vs {getOpponent(row.match_id)}</div>
-                <div className="text-sm font-mono text-gray-700">
-                  {formatOvers(row.overs ?? 0)}-{row.maidens ?? 0}-{row.runs ?? 0}-{row.wickets ?? 0}
-                </div>
+            </div>
+            <CCard padding="0">
+              {/* Table header */}
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: `2px solid ${C_RULE}` }}>
+                      <th style={thLeftStyle}>Season</th>
+                      <th style={thStyle}>Inn</th>
+                      <th style={thStyle}>NO</th>
+                      <th style={thStyle}>Runs</th>
+                      <th style={thStyle}>HS</th>
+                      <th style={thStyle}>Avg</th>
+                      <th style={thStyle}>50/100</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {batSeasons.map((s) => {
+                      const a = batBySeason.get(s)!
+                      const tdStyle: React.CSSProperties = {
+                        padding: '11px 14px',
+                        textAlign: 'right',
+                        fontFamily: mono,
+                        fontSize: 13,
+                        color: '#666',
+                        borderBottom: `1px dashed ${C_RULE}`,
+                      }
+                      return (
+                        <tr key={`bat-${s}`} style={{ cursor: 'pointer' }}>
+                            <td style={{ ...tdStyle, textAlign: 'left' }}>
+                              <details>
+                                <summary style={{ listStyle: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+                                  <span style={{ fontFamily: mono, fontSize: 11, color: '#bbb', display: 'inline-block', width: 10 }}>▸</span>
+                                  <span style={{ fontFamily: display, fontSize: 15, fontWeight: 500 }}>{s}</span>
+                                </summary>
+                                {/* Expanded innings */}
+                                <div style={{ paddingTop: 8, paddingBottom: 4 }}>
+                                  {a.rows
+                                    .slice()
+                                    .sort((x, y) => (getMatchDate(y.match_id) || '').localeCompare(getMatchDate(x.match_id) || ''))
+                                    .map((row, i) => {
+                                      const fid = getFixtureId(row.match_id)
+                                      const isNotOut = !row.how_out || (row.how_out ?? '').toLowerCase() === 'not out'
+                                      const content = (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 4px' }}>
+                                          <div style={{ fontFamily: mono, fontSize: 11, color: '#bbb', minWidth: 76 }}>
+                                            {getMatchDate(row.match_id) ? fmtDate(getMatchDate(row.match_id)) : '−'}
+                                          </div>
+                                          <div style={{ flex: 1, fontSize: 13, color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            vs {getOpponent(row.match_id)}
+                                          </div>
+                                          <div style={{ fontFamily: mono, fontSize: 13, fontWeight: 700, color: C_GREEN, minWidth: 32, textAlign: 'right' }}>
+                                            {row.runs ?? '−'}
+                                            {isNotOut && row.runs != null && <span style={{ fontSize: 10, color: C_GREEN_LT }}>*</span>}
+                                          </div>
+                                          <div style={{ fontFamily: mono, fontSize: 11, color: '#999', maxWidth: 140, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {isNotOut ? <span style={{ color: C_GREEN_LT }}>not out</span> : <>b {row.bowler_name ?? '−'}</>}
+                                          </div>
+                                        </div>
+                                      )
+                                      return fid ? (
+                                        <Link
+                                          key={i}
+                                          href={`/fixtures/${fid}`}
+                                          style={{ display: 'block', textDecoration: 'none', color: 'inherit', borderRadius: 2 }}
+                                        >
+                                          {content}
+                                        </Link>
+                                      ) : (
+                                        <div key={i}>{content}</div>
+                                      )
+                                    })}
+                                </div>
+                              </details>
+                            </td>
+                            <td style={tdStyle}>{a.inns}</td>
+                            <td style={tdStyle}>{a.notOut}</td>
+                            <td style={{ ...tdStyle, fontFamily: mono, fontWeight: 700, color: C_GREEN }}>{a.runs}</td>
+                            <td style={tdStyle}>{a.hs}</td>
+                            <td style={tdStyle}>{fmtAvg(a.runs, a.inns, a.notOut)}</td>
+                            <td style={tdStyle}>{a.fifties}/{a.hundreds}</td>
+                          </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
               </div>
-            ))}
-          </div>
-        </section>
-      )}
+            </CCard>
+          </section>
+        )}
 
-      {careerMatches === 0 && (
-        <div className="text-center py-16 text-gray-400">
-          <p className="text-lg font-medium">No scorecard data found for {player.name}.</p>
-          <p className="text-sm mt-1">Data populates as matches are synced from Play-Cricket.</p>
-        </div>
-      )}
+        {/* Bowling by Season */}
+        {bowlSeasons.length > 0 && (
+          <section style={{ marginBottom: 48 }}>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: 3, color: C_RED, textTransform: 'uppercase', fontWeight: 700 }}>— Bowling</div>
+              <div style={{ fontFamily: display, fontSize: 28, fontWeight: 500, letterSpacing: -0.5, marginTop: 4 }}>
+                Season by season.
+                <span style={{ fontFamily: mono, fontSize: 11, letterSpacing: 1, color: '#aaa', textTransform: 'uppercase', fontWeight: 400, fontStyle: 'normal', marginLeft: 12 }}>
+                  click to expand spells
+                </span>
+              </div>
+            </div>
+            <CCard padding="0">
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: `2px solid ${C_RULE}` }}>
+                      <th style={thLeftStyle}>Season</th>
+                      <th style={thStyle}>O</th>
+                      <th style={thStyle}>R</th>
+                      <th style={thStyle}>W</th>
+                      <th style={thStyle}>Best</th>
+                      <th style={thStyle}>Avg</th>
+                      <th style={thStyle}>Econ</th>
+                      <th style={thStyle}>5W</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bowlSeasons.map((s) => {
+                      const a = bowlBySeason.get(s)!
+                      const tdStyle: React.CSSProperties = {
+                        padding: '11px 14px',
+                        textAlign: 'right',
+                        fontFamily: mono,
+                        fontSize: 13,
+                        color: '#666',
+                        borderBottom: `1px dashed ${C_RULE}`,
+                      }
+                      return (
+                        <tr key={s}>
+                          <td style={{ ...tdStyle, textAlign: 'left' }}>
+                            <details>
+                              <summary style={{ listStyle: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <span style={{ fontFamily: mono, fontSize: 11, color: '#bbb', display: 'inline-block', width: 10 }}>▸</span>
+                                <span style={{ fontFamily: display, fontSize: 15, fontWeight: 500 }}>{s}</span>
+                              </summary>
+                              <div style={{ paddingTop: 8, paddingBottom: 4 }}>
+                                {a.rows
+                                  .slice()
+                                  .sort((x, y) => (getMatchDate(y.match_id) || '').localeCompare(getMatchDate(x.match_id) || ''))
+                                  .map((row, i) => {
+                                    const fid = getFixtureId(row.match_id)
+                                    const content = (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 4px' }}>
+                                        <div style={{ fontFamily: mono, fontSize: 11, color: '#bbb', minWidth: 76 }}>
+                                          {getMatchDate(row.match_id) ? fmtDate(getMatchDate(row.match_id)) : '−'}
+                                        </div>
+                                        <div style={{ flex: 1, fontSize: 13, color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                          vs {getOpponent(row.match_id)}
+                                        </div>
+                                        <div style={{ fontFamily: mono, fontSize: 13, color: '#555' }}>
+                                          {formatOvers(row.overs ?? 0)}-{row.maidens ?? 0}-{row.runs ?? 0}-
+                                          <span style={{ fontWeight: 700, color: C_RED }}>{row.wickets ?? 0}</span>
+                                        </div>
+                                      </div>
+                                    )
+                                    return fid ? (
+                                      <Link
+                                        key={i}
+                                        href={`/fixtures/${fid}`}
+                                        style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
+                                      >
+                                        {content}
+                                      </Link>
+                                    ) : (
+                                      <div key={i}>{content}</div>
+                                    )
+                                  })}
+                              </div>
+                            </details>
+                          </td>
+                          <td style={tdStyle}>{formatOvers(a.overs)}</td>
+                          <td style={tdStyle}>{a.runs}</td>
+                          <td style={{ ...tdStyle, fontWeight: 700, color: C_RED }}>{a.wickets}</td>
+                          <td style={tdStyle}>{a.bestWkts}/{a.bestRuns === 999 ? 0 : a.bestRuns}</td>
+                          <td style={tdStyle}>{fmtBowlAvg(a.runs, a.wickets)}</td>
+                          <td style={tdStyle}>{fmtEcon(a.runs, a.overs)}</td>
+                          <td style={tdStyle}>{a.fiveWs}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CCard>
+          </section>
+        )}
+
+        {careerMatches === 0 && (
+          <div style={{ textAlign: 'center', padding: '80px 0', color: '#888' }}>
+            <div style={{ fontFamily: display, fontSize: 32, fontStyle: 'italic', marginBottom: 12 }}>
+              No scorecard data found for {player.name}.
+            </div>
+            <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase' }}>
+              Data populates as matches are synced from Play-Cricket.
+            </div>
+          </div>
+        )}
+      </CContainer>
     </div>
   )
 }

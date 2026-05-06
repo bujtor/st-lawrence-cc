@@ -2,15 +2,29 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { clubSlug } from '@/lib/slug'
+import { formLetter } from '@/lib/recent-form'
+import { todayLondon } from '@/lib/london-time'
+import {
+  CKicker,
+  CCard,
+  CFormChip,
+  CMonoLabel,
+  CDateStack,
+  CResultPill,
+  CHomeAwayChip,
+  CVs,
+  CContainer,
+  C_GREEN,
+  C_GREEN_LT,
+  C_RED,
+  C_INK,
+  C_RULE,
+  display,
+  mono,
+  sansTight,
+} from '@/components/c/primitives'
 
 export const dynamic = 'force-dynamic'
-
-function fmtFullDate(d: string): string {
-  const dt = new Date(d + 'T00:00:00')
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  return `${days[dt.getDay()]} ${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()}`
-}
 
 type FixtureRow = {
   id: number
@@ -18,10 +32,18 @@ type FixtureRow = {
   opponent: string
   venue: string
   home_away: string
+  start_time: string | null
   result_text: string | null
   competition: string | null
   play_cricket_match_id: number | null
   season: number
+}
+
+type TopBat = { batsman_name: string | null; runs: number | null; match_id: number | null }
+type TopBowl = { bowler_name: string | null; wickets: number | null; runs: number | null; match_id: number | null }
+
+function fmtYear(d: string): string {
+  return new Date(d + 'T00:00:00').getFullYear().toString()
 }
 
 export default async function ClubDetailPage({
@@ -31,10 +53,9 @@ export default async function ClubDetailPage({
 }) {
   const { slug } = await params
 
-  // Find opponent by matching slug against all known opponents
   const { data: allFixtures } = await supabase
     .from('fixtures')
-    .select('id, match_date, opponent, venue, home_away, result_text, competition, play_cricket_match_id, season')
+    .select('id, match_date, opponent, venue, home_away, start_time, result_text, competition, play_cricket_match_id, season')
     .order('match_date', { ascending: false })
 
   const allOpponents = new Set<string>()
@@ -42,21 +63,20 @@ export default async function ClubDetailPage({
     if (f.opponent) allOpponents.add(f.opponent)
   }
 
-  // Case-insensitive slug match
   const matchedOpponent = Array.from(allOpponents).find(
     name => clubSlug(name) === slug
   )
 
   if (!matchedOpponent) notFound()
 
-  // All fixtures vs this opponent
   const fixtures = (allFixtures ?? []).filter(
     (f: FixtureRow) => f.opponent === matchedOpponent
   ) as FixtureRow[]
 
-  // H2H summary
+  // H2H summary — only count completed fixtures
+  const completed = fixtures.filter((f) => f.result_text)
   let played = 0, won = 0, lost = 0, drew = 0, tied = 0, abandoned = 0
-  for (const f of fixtures) {
+  for (const f of completed) {
     played++
     const r = f.result_text ?? ''
     if (r === 'Won') won++
@@ -66,20 +86,19 @@ export default async function ClubDetailPage({
     else if (r === 'Abandoned') abandoned++
   }
 
-  // Get match IDs for scorecard queries
+  const winPct = played > 0 ? Math.round((won / played) * 100) : 0
+  const firstMeeting = completed.length > 0 ? completed[completed.length - 1].match_date : null
+  const lastMeeting = completed.length > 0 ? completed[0].match_date : null
+
   const matchIds = fixtures
     .map((f: FixtureRow) => f.play_cricket_match_id)
     .filter((x): x is number => typeof x === 'number')
-
-  type TopBat = { batsman_name: string | null; runs: number | null; match_id: number | null }
-  type TopBowl = { bowler_name: string | null; wickets: number | null; runs: number | null; match_id: number | null }
 
   let ourTopBatter: TopBat | undefined
   let ourTopBowler: TopBowl | undefined
   let theirTopBatter: TopBat | undefined
 
   if (matchIds.length > 0) {
-    // Our top scorer against them (single innings)
     const { data: ourBat } = await supabase
       .from('batting_entries')
       .select('batsman_name, runs, match_id')
@@ -89,7 +108,6 @@ export default async function ClubDetailPage({
       .limit(1)
     ourTopBatter = ourBat?.[0] as TopBat | undefined
 
-    // Our best bowling against them (single innings)
     const { data: ourBowl } = await supabase
       .from('bowling_entries')
       .select('bowler_name, wickets, runs, overs, match_id')
@@ -100,7 +118,6 @@ export default async function ClubDetailPage({
       .limit(1)
     ourTopBowler = ourBowl?.[0] as TopBowl | undefined
 
-    // Their top scorer against us (single innings)
     const { data: theirBat } = await supabase
       .from('batting_entries')
       .select('batsman_name, runs, match_id')
@@ -111,145 +128,422 @@ export default async function ClubDetailPage({
     theirTopBatter = theirBat?.[0] as TopBat | undefined
   }
 
-  // Build map of match_id -> fixture for linking
+  const { data: syncedScorecards } = matchIds.length > 0
+    ? await supabase.from('match_scorecards').select('match_id').in('match_id', matchIds)
+    : { data: [] as { match_id: number }[] }
+  const syncedMatchIds = new Set((syncedScorecards ?? []).map((s) => s.match_id))
+
   const fixtureByMatchId = new Map<number, FixtureRow>()
   for (const f of fixtures) {
     if (f.play_cricket_match_id) fixtureByMatchId.set(f.play_cricket_match_id, f)
   }
 
-  const resultClass = (r: string | null) => {
-    if (r === 'Won') return 'bg-emerald-50 text-emerald-700 border-emerald-200'
-    if (r === 'Lost') return 'bg-rose-50 text-rose-700 border-rose-200'
-    return 'bg-gray-50 text-gray-500 border-gray-200'
+  const recentForm = completed.slice(0, 5).map((f) => formLetter(f.result_text))
+
+  const bySeason = new Map<number, FixtureRow[]>()
+  for (const f of completed) {
+    const yr = f.season ?? new Date(f.match_date + 'T00:00:00').getFullYear()
+    if (!bySeason.has(yr)) bySeason.set(yr, [])
+    bySeason.get(yr)!.push(f)
   }
+  const seasons = Array.from(bySeason.keys()).sort((a, b) => b - a)
+
+  const today = todayLondon()
+  const nextVsThem = fixtures.find((f) => !f.result_text && f.match_date >= today) ?? null
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="mb-4">
-        <Link href="/clubs" className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold no-underline">
-          ← Back to Opponents
-        </Link>
-      </div>
+    <div style={{ fontFamily: sansTight, color: C_INK }}>
+      {/* Dark header band */}
+      <div style={{ background: C_GREEN, color: '#fff' }}>
+        <CContainer padding="56px 32px 48px">
+          <Link
+            href="/clubs"
+            style={{
+              fontFamily: mono,
+              fontSize: 11,
+              letterSpacing: 2.5,
+              textTransform: 'uppercase',
+              color: 'rgba(255,255,255,.55)',
+              textDecoration: 'none',
+              fontWeight: 700,
+              display: 'inline-block',
+              marginBottom: 20,
+            }}
+          >
+            ← All Opponents
+          </Link>
+          <CKicker color={C_RED}>Opponents</CKicker>
+          <h1
+            style={{
+              fontFamily: display,
+              fontSize: 'clamp(40px, 7vw, 88px)',
+              fontWeight: 400,
+              fontStyle: 'italic',
+              lineHeight: 0.9,
+              letterSpacing: -3,
+              color: '#fff',
+              margin: '14px 0 0',
+            }}
+          >
+            <span style={{ opacity: 0.55, fontWeight: 300 }}>v.</span> {matchedOpponent}.
+          </h1>
 
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-extrabold text-gray-900">St Lawrence CC vs {matchedOpponent}</h1>
-        <p className="text-sm text-gray-400 mt-1">All-time head-to-head record</p>
-      </div>
-
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 text-center">
-          <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Played</div>
-          <div className="text-2xl font-extrabold text-gray-900">{played}</div>
-        </div>
-        <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100 text-center">
-          <div className="text-[10px] text-emerald-600 font-semibold uppercase tracking-wider mb-1">Won</div>
-          <div className="text-2xl font-extrabold text-emerald-700">{won}</div>
-        </div>
-        <div className="bg-rose-50 rounded-xl p-4 border border-rose-100 text-center">
-          <div className="text-[10px] text-rose-600 font-semibold uppercase tracking-wider mb-1">Lost</div>
-          <div className="text-2xl font-extrabold text-rose-700">{lost}</div>
-        </div>
-        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 text-center">
-          <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1">
-            {drew > 0 ? 'Drawn' : tied > 0 ? 'Tied' : 'Abandoned'}
-          </div>
-          <div className="text-2xl font-extrabold text-gray-700">{drew || tied || abandoned}</div>
-        </div>
-      </div>
-
-      {/* Top performers */}
-      {(ourTopBatter || ourTopBowler || theirTopBatter) && (
-        <section className="mb-8">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Notable Performances</h2>
-          <div className="grid gap-3 md:grid-cols-3">
-            {ourTopBatter && (
-              <div className="bg-white rounded-xl border border-gray-100 p-4">
-                <div className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider mb-1">Our top score (single innings)</div>
-                <div className="font-semibold text-gray-900">{ourTopBatter.batsman_name ?? 'Unknown'}</div>
-                <div className="text-2xl font-extrabold text-gray-900">{ourTopBatter.runs ?? 0}</div>
-                {ourTopBatter.match_id && fixtureByMatchId.has(ourTopBatter.match_id) && (
-                  <div className="text-xs text-gray-400 mt-1">
-                    {fmtFullDate(fixtureByMatchId.get(ourTopBatter.match_id)!.match_date)}
-                  </div>
-                )}
-              </div>
-            )}
-            {ourTopBowler && (
-              <div className="bg-white rounded-xl border border-gray-100 p-4">
-                <div className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider mb-1">Our best bowling (single innings)</div>
-                <div className="font-semibold text-gray-900">{ourTopBowler.bowler_name ?? 'Unknown'}</div>
-                <div className="text-2xl font-extrabold text-gray-900">
-                  {ourTopBowler.wickets ?? 0}-{ourTopBowler.runs ?? 0}
-                </div>
-                {ourTopBowler.match_id && fixtureByMatchId.has(ourTopBowler.match_id) && (
-                  <div className="text-xs text-gray-400 mt-1">
-                    {fmtFullDate(fixtureByMatchId.get(ourTopBowler.match_id)!.match_date)}
-                  </div>
-                )}
-              </div>
-            )}
-            {theirTopBatter && (
-              <div className="bg-white rounded-xl border border-gray-100 p-4">
-                <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1">Their highest score against us</div>
-                <div className="font-semibold text-gray-700">{theirTopBatter.batsman_name ?? 'Unknown'}</div>
-                <div className="text-2xl font-extrabold text-gray-600">{theirTopBatter.runs ?? 0}</div>
-                {theirTopBatter.match_id && fixtureByMatchId.has(theirTopBatter.match_id) && (
-                  <div className="text-xs text-gray-400 mt-1">
-                    {fmtFullDate(fixtureByMatchId.get(theirTopBatter.match_id)!.match_date)}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* Match list */}
-      <section>
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Match History</h2>
-        <div className="space-y-2">
-          {fixtures.map((f: FixtureRow) => {
-            const hasScorecard = !!f.play_cricket_match_id && matchIds.includes(f.play_cricket_match_id)
-            const content = (
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-sm font-medium text-gray-800">{fmtFullDate(f.match_date)}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">
-                    {f.home_away === 'H' ? 'Home' : 'Away'} · {f.venue}
-                    {f.competition ? ` · ${f.competition}` : ''}
-                  </div>
-                </div>
-                {f.result_text && (
-                  <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border flex-shrink-0 ${resultClass(f.result_text)}`}>
-                    {f.result_text}
-                  </span>
-                )}
-              </div>
-            )
-
-            return hasScorecard ? (
-              <Link
-                key={f.id}
-                href={`/fixtures/${f.id}`}
-                className="block bg-white rounded-xl border border-gray-100 px-4 py-3 no-underline hover:border-emerald-200 hover:bg-emerald-50/20 transition-all"
+          {/* Recent form strip */}
+          {recentForm.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 24 }}>
+              <span
+                style={{
+                  fontFamily: mono,
+                  fontSize: 10,
+                  letterSpacing: 2,
+                  textTransform: 'uppercase',
+                  color: 'rgba(255,255,255,.5)',
+                }}
               >
-                {content}
-              </Link>
-            ) : (
+                Last {recentForm.length}
+              </span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {recentForm.map((letter, i) => (
+                  <CFormChip key={i} letter={letter} size={28} />
+                ))}
+              </div>
+            </div>
+          )}
+        </CContainer>
+      </div>
+
+      <CContainer padding="48px 32px 80px">
+        {/* Summary stats row */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
+            gap: 1,
+            background: C_RULE,
+            border: `1px solid ${C_RULE}`,
+            marginBottom: 48,
+          }}
+          className="stats-grid"
+        >
+          {[
+            { label: 'Played', value: String(played), color: C_INK },
+            { label: 'Won', value: String(won), color: C_GREEN_LT },
+            { label: 'Lost', value: String(lost), color: C_RED },
+            { label: 'Drawn', value: String(drew), color: '#888' },
+            { label: 'Win %', value: `${winPct}%`, color: winPct >= 50 ? C_GREEN_LT : winPct === 0 ? C_RED : '#888' },
+            {
+              label: 'Since',
+              value: firstMeeting ? fmtYear(firstMeeting) : '—',
+              color: '#555',
+            },
+          ].map(({ label, value, color }) => (
+            <div
+              key={label}
+              style={{
+                background: '#fff',
+                padding: '20px 16px',
+                textAlign: 'center',
+              }}
+            >
+              <CMonoLabel color="#999">{label}</CMonoLabel>
               <div
-                key={f.id}
-                className="bg-white rounded-xl border border-gray-100 px-4 py-3"
+                style={{
+                  fontFamily: display,
+                  fontSize: 40,
+                  fontWeight: 500,
+                  lineHeight: 1,
+                  letterSpacing: -1,
+                  color,
+                  marginTop: 6,
+                }}
               >
-                {content}
+                {value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Notable performances */}
+        {(ourTopBatter || ourTopBowler || theirTopBatter) && (
+          <section style={{ marginBottom: 48 }}>
+            <div style={{ borderTop: `2px solid ${C_INK}`, paddingTop: 20, marginBottom: 20 }}>
+              <CKicker color="#888">Notable Performances</CKicker>
+            </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                gap: 16,
+              }}
+              className="perf-grid"
+            >
+              {ourTopBatter && (
+                <CCard padding="20px 22px">
+                  <CMonoLabel color={C_GREEN_LT} size={9}>Our top score</CMonoLabel>
+                  <div
+                    style={{
+                      fontFamily: display,
+                      fontSize: 18,
+                      fontWeight: 500,
+                      marginTop: 8,
+                      letterSpacing: -0.3,
+                    }}
+                  >
+                    {ourTopBatter.batsman_name ?? 'Unknown'}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: display,
+                      fontSize: 44,
+                      fontWeight: 500,
+                      lineHeight: 1,
+                      color: C_GREEN_LT,
+                      letterSpacing: -1.5,
+                      marginTop: 4,
+                    }}
+                  >
+                    {ourTopBatter.runs ?? 0}
+                  </div>
+                  {ourTopBatter.match_id && fixtureByMatchId.has(ourTopBatter.match_id) && (
+                    <div style={{ fontFamily: mono, fontSize: 10, color: '#999', marginTop: 6, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                      {new Date(fixtureByMatchId.get(ourTopBatter.match_id)!.match_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </div>
+                  )}
+                </CCard>
+              )}
+              {ourTopBowler && (
+                <CCard padding="20px 22px">
+                  <CMonoLabel color={C_GREEN_LT} size={9}>Our best bowling</CMonoLabel>
+                  <div
+                    style={{
+                      fontFamily: display,
+                      fontSize: 18,
+                      fontWeight: 500,
+                      marginTop: 8,
+                      letterSpacing: -0.3,
+                    }}
+                  >
+                    {ourTopBowler.bowler_name ?? 'Unknown'}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: display,
+                      fontSize: 44,
+                      fontWeight: 500,
+                      lineHeight: 1,
+                      color: C_GREEN_LT,
+                      letterSpacing: -1.5,
+                      marginTop: 4,
+                    }}
+                  >
+                    {ourTopBowler.wickets ?? 0}&ndash;{ourTopBowler.runs ?? 0}
+                  </div>
+                  {ourTopBowler.match_id && fixtureByMatchId.has(ourTopBowler.match_id) && (
+                    <div style={{ fontFamily: mono, fontSize: 10, color: '#999', marginTop: 6, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                      {new Date(fixtureByMatchId.get(ourTopBowler.match_id)!.match_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </div>
+                  )}
+                </CCard>
+              )}
+              {theirTopBatter && (
+                <CCard padding="20px 22px">
+                  <CMonoLabel color="#999" size={9}>Their highest vs us</CMonoLabel>
+                  <div
+                    style={{
+                      fontFamily: display,
+                      fontSize: 18,
+                      fontWeight: 500,
+                      marginTop: 8,
+                      letterSpacing: -0.3,
+                      color: '#555',
+                    }}
+                  >
+                    {theirTopBatter.batsman_name ?? 'Unknown'}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: display,
+                      fontSize: 44,
+                      fontWeight: 500,
+                      lineHeight: 1,
+                      color: C_RED,
+                      letterSpacing: -1.5,
+                      marginTop: 4,
+                    }}
+                  >
+                    {theirTopBatter.runs ?? 0}
+                  </div>
+                  {theirTopBatter.match_id && fixtureByMatchId.has(theirTopBatter.match_id) && (
+                    <div style={{ fontFamily: mono, fontSize: 10, color: '#999', marginTop: 6, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                      {new Date(fixtureByMatchId.get(theirTopBatter.match_id)!.match_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </div>
+                  )}
+                </CCard>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Upcoming fixture callout */}
+        {nextVsThem && (
+          <Link
+            href={`/fixtures/${nextVsThem.id}`}
+            style={{
+              display: 'block',
+              background: '#fff',
+              border: `1px solid ${C_RULE}`,
+              borderLeft: `4px solid ${C_RED}`,
+              padding: '14px 18px',
+              marginBottom: 32,
+              textDecoration: 'none',
+              color: C_INK,
+            }}
+          >
+            <CKicker color={C_RED}>Next meeting</CKicker>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 6, gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ fontFamily: display, fontSize: 22, fontWeight: 500 }}>
+                <CVs /> {matchedOpponent}
+              </div>
+              <div style={{ fontFamily: mono, fontSize: 12, color: '#666', letterSpacing: 1 }}>
+                {new Date(nextVsThem.match_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                {nextVsThem.start_time ? ` · ${nextVsThem.start_time.slice(0, 5)}` : ''}
+                {' · '}{nextVsThem.home_away === 'H' ? 'Home' : 'Away'}
+              </div>
+            </div>
+          </Link>
+        )}
+
+        {/* Match history grouped by season */}
+        <section>
+          <div style={{ borderTop: `2px solid ${C_INK}`, paddingTop: 20, marginBottom: 8 }}>
+            <CKicker color="#888">Past Meetings · {played} match{played !== 1 ? 'es' : ''}</CKicker>
+          </div>
+
+          {seasons.map(yr => {
+            const seasonFixtures = bySeason.get(yr) ?? []
+            return (
+              <div key={yr} style={{ marginTop: 32 }}>
+                {/* Season year kicker */}
+                <div
+                  style={{
+                    fontFamily: display,
+                    fontSize: 13,
+                    fontStyle: 'italic',
+                    color: '#aaa',
+                    borderBottom: `1px solid ${C_RULE}`,
+                    paddingBottom: 6,
+                    marginBottom: 0,
+                  }}
+                >
+                  {yr} Season
+                </div>
+                {seasonFixtures.map((f: FixtureRow) => {
+                  const hasScorecard = !!f.play_cricket_match_id && syncedMatchIds.has(f.play_cricket_match_id)
+
+                  const rowContent = (
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '56px 1fr auto',
+                        gap: 20,
+                        alignItems: 'center',
+                        padding: '16px 0',
+                        borderBottom: `1px dashed ${C_RULE}`,
+                      }}
+                    >
+                      {/* Date stack */}
+                      <CDateStack dateStr={f.match_date} />
+
+                      {/* Match info */}
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontFamily: display,
+                            fontSize: 18,
+                            fontWeight: 500,
+                            letterSpacing: -0.3,
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          <CVs /> {f.opponent}
+                        </div>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
+                            marginTop: 6,
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <CHomeAwayChip homeAway={f.home_away} />
+                          {f.venue && (
+                            <span style={{ fontFamily: mono, fontSize: 10, color: '#999', letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                              {f.venue}
+                            </span>
+                          )}
+                          {f.competition && (
+                            <span style={{ fontFamily: mono, fontSize: 10, color: '#bbb', letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                              {f.competition}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Result + scorecard link */}
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        {f.result_text && <CResultPill result={f.result_text} />}
+                        {hasScorecard && (
+                          <div
+                            style={{
+                              fontFamily: mono,
+                              fontSize: 10,
+                              color: C_RED,
+                              letterSpacing: 2,
+                              textTransform: 'uppercase',
+                              fontWeight: 700,
+                              marginTop: 6,
+                            }}
+                          >
+                            Scorecard →
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+
+                  return hasScorecard ? (
+                    <Link
+                      key={f.id}
+                      href={`/fixtures/${f.id}`}
+                      style={{ textDecoration: 'none', color: C_INK, display: 'block' }}
+                      className="match-row-link"
+                    >
+                      {rowContent}
+                    </Link>
+                  ) : (
+                    <div key={f.id}>{rowContent}</div>
+                  )
+                })}
               </div>
             )
           })}
-        </div>
-      </section>
+
+          {fixtures.length === 0 && (
+            <div style={{ padding: '32px 0', color: '#888', fontSize: 14 }}>
+              No completed matches recorded yet.
+            </div>
+          )}
+        </section>
+      </CContainer>
+
+      <style>{`
+        .match-row-link:hover { background: rgba(13,59,39,.04); }
+        @media (max-width: 640px) {
+          .stats-grid { grid-template-columns: repeat(3, 1fr) !important; }
+          .perf-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   )
 }
-
-

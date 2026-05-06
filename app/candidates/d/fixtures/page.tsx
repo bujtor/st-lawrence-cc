@@ -1,11 +1,10 @@
 import { supabase } from '@/lib/supabase'
+import FixtureList from '../_components/FixtureList'
 import { fetchRecentForm, fetchFormByOpponent } from '@/lib/recent-form'
-import { todayLondon } from '@/lib/london-time'
-import CFixturesList from '@/components/c/CFixturesList'
 
 export const dynamic = 'force-dynamic'
 
-export default async function CFixturesPage({
+export default async function FixturesPage({
   searchParams,
 }: {
   searchParams: Promise<{ season?: string }>
@@ -19,23 +18,26 @@ export default async function CFixturesPage({
     .eq('season', season)
     .order('match_date', { ascending: true })
 
+  // Which matches in this season have scorecards synced (controls the in-modal
+  // "View scorecard" link AND whether a row is a clickable scorecard link).
   const { data: scs } = await supabase
     .from('match_scorecards')
     .select('match_id')
     .eq('season', season)
-  const scorecardIds = Array.from(new Set((scs ?? []).map((s) => s.match_id)))
+  const scorecardIds = new Set((scs ?? []).map((s) => s.match_id))
 
+  // Overall last 5 results across all seasons — header strip on the list.
   const recentForm = await fetchRecentForm(5)
+  // Per-opponent form for chips on each upcoming row.
   const formByOpponent = await fetchFormByOpponent(5)
 
   return (
-    <CFixturesList
+    <FixtureList
       fixtures={fixtures || []}
       season={season}
-      scorecardIds={scorecardIds}
+      scorecardIds={Array.from(scorecardIds)}
       recentForm={recentForm}
       formByOpponent={formByOpponent}
-      todayDate={todayLondon()}
     />
   )
 }

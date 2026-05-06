@@ -2,6 +2,24 @@
 
 import { useState } from 'react'
 import type { Player, Fixture } from '@/lib/supabase'
+import {
+  C_GREEN,
+  C_GREEN_LT,
+  C_RED,
+  C_CREAM,
+  C_INK,
+  C_RULE,
+  display,
+  sansTight,
+  mono,
+} from '@/lib/c-theme/tokens'
+
+const C_AMBER = '#b45309'
+const C_AMBER_BG = '#fffbeb'
+const C_AMBER_BD = '#fbbf24'
+const C_INDIGO = '#4338ca'
+const C_INDIGO_BG = '#eef2ff'
+const C_INDIGO_BD = '#a5b4fc'
 
 type AvailabilityMap = Record<number, Record<number, string>>
 type SelectionMap = Record<number, Record<number, boolean>>
@@ -13,14 +31,140 @@ function formatMatchDate(dateStr: string) {
   return `${days[d.getDay()]} ${months[d.getMonth()]} ${d.getDate()} ${d.getFullYear()}`
 }
 
-function formatTime(time: string | null) {
-  if (!time) return ''
-  return time.slice(0, 5)
-}
-
 function shortName(p: Player) {
   const parts = p.name.split(' ')
   return `${parts[0]} ${(parts[1] || '')[0]}${parts[1] ? '.' : ''}`
+}
+
+function PlayerChip({
+  p,
+  avMap,
+  fixtureId,
+  isSelected,
+  onToggle,
+  selectingXI,
+}: {
+  p: Player
+  avMap: AvailabilityMap
+  fixtureId: number
+  isSelected: boolean
+  onToggle?: () => void
+  selectingXI?: boolean
+}) {
+  const isTentative = avMap[p.id]?.[fixtureId] === 'tentative'
+  const baseStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    padding: '4px 10px',
+    fontFamily: sansTight,
+    fontSize: 12,
+    fontStyle: 'italic',
+    cursor: onToggle ? 'pointer' : 'default',
+    border: '1px solid',
+    transition: 'all 0.1s',
+  }
+
+  if (selectingXI && onToggle) {
+    return (
+      <button
+        onClick={onToggle}
+        style={{
+          ...baseStyle,
+          background: isSelected ? C_GREEN : '#fff',
+          borderColor: isSelected ? C_GREEN : C_RULE,
+          color: isSelected ? '#fff' : C_INK,
+        }}
+      >
+        {isSelected && '✓ '}
+        {shortName(p)}
+        {p.is_ringin && (
+          <span
+            style={{
+              fontFamily: mono,
+              fontSize: 9,
+              background: isSelected ? C_GREEN_LT : '#e6f4ea',
+              color: isSelected ? '#fff' : C_GREEN,
+              padding: '1px 4px',
+              letterSpacing: 1,
+              fontStyle: 'normal',
+            }}
+          >
+            RI
+          </span>
+        )}
+        {isTentative && (
+          <span
+            style={{
+              fontFamily: mono,
+              fontSize: 9,
+              background: isSelected ? '#5b52e0' : C_AMBER_BG,
+              color: isSelected ? '#fff' : C_AMBER,
+              padding: '1px 4px',
+              letterSpacing: 1,
+              fontStyle: 'normal',
+            }}
+          >
+            TBC
+          </span>
+        )}
+      </button>
+    )
+  }
+
+  return (
+    <span style={{ ...baseStyle, cursor: 'default' }}>
+      {shortName(p)}
+      {p.is_ringin && (
+        <span
+          style={{
+            fontFamily: mono,
+            fontSize: 9,
+            background: '#e6f4ea',
+            color: C_GREEN,
+            padding: '1px 4px',
+            letterSpacing: 1,
+            fontStyle: 'normal',
+          }}
+        >
+          RI
+        </span>
+      )}
+      {isTentative && (
+        <span
+          style={{
+            fontFamily: mono,
+            fontSize: 9,
+            background: C_AMBER_BG,
+            color: C_AMBER,
+            padding: '1px 4px',
+            letterSpacing: 1,
+            fontStyle: 'normal',
+          }}
+        >
+          TBC
+        </span>
+      )}
+    </span>
+  )
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        fontFamily: mono,
+        fontSize: 10,
+        letterSpacing: 2,
+        color: '#888',
+        textTransform: 'uppercase',
+        marginBottom: 8,
+        marginTop: 2,
+      }}
+    >
+      {children}
+    </div>
+  )
 }
 
 export default function MatchDetail({
@@ -73,9 +217,10 @@ export default function MatchDetail({
     (p) => !avMap[p.id]?.[fixture.id] || avMap[p.id]?.[fixture.id] === 'none'
   )
   const total = yes.length + maybe.length
-  const mapsUrl = fixture.lat && fixture.lng
-    ? `https://www.google.com/maps?q=${fixture.lat},${fixture.lng}`
-    : null
+  const mapsUrl =
+    fixture.lat && fixture.lng
+      ? `https://www.google.com/maps?q=${fixture.lat},${fixture.lng}`
+      : null
 
   const isSelected = (pid: number) => selMap[pid]?.[fixture.id] || false
   const selectable = [...yes, ...maybe]
@@ -87,12 +232,12 @@ export default function MatchDetail({
     const hasXI = xi.length > 0
 
     const lines = [
-      `\uD83C\uDFCF *St Lawrence CC vs ${fixture.opponent}*`,
-      `\uD83D\uDCC5 ${formatMatchDate(fixture.match_date)}`,
-      `\u23F0 Meet ${meetTime || '--:--'} \u00B7 Start ${startTime || '--:--'}`,
-      `\uD83D\uDCCD ${fixture.venue} (${fixture.home_away === 'H' ? 'Home' : 'Away'})`,
+      `🏏 *St Lawrence CC vs ${fixture.opponent}*`,
+      `📅 ${formatMatchDate(fixture.match_date)}`,
+      `⏰ Meet ${meetTime || '--:--'} · Start ${startTime || '--:--'}`,
+      `📍 ${fixture.venue} (${fixture.home_away === 'H' ? 'Home' : 'Away'})`,
     ]
-    if (mapsUrl) lines.push(`\uD83D\uDDFA\uFE0F ${mapsUrl}`)
+    if (mapsUrl) lines.push(`🗺️ ${mapsUrl}`)
 
     if (hasXI) {
       lines.push('', `*Playing XI (${xi.length}):*`)
@@ -105,7 +250,7 @@ export default function MatchDetail({
       if (reserves.length > 0) {
         lines.push('', `*Reserves:*`)
         reserves.forEach((p) => {
-          let s = `\u2022 ${p.name}`
+          let s = `• ${p.name}`
           if (p.is_ringin) s += ' _(ring-in)_'
           if (avMap[p.id]?.[fixture.id] === 'tentative') s += ' _(tbc)_'
           lines.push(s)
@@ -122,10 +267,10 @@ export default function MatchDetail({
     }
 
     if (total < 11) {
-      lines.push('', `\u26A0\uFE0F Still need ${11 - total} more \u2014 let me know if you can play!`)
+      lines.push('', `⚠️ Still need ${11 - total} more — let me know if you can play!`)
     }
     if (quiet.length > 0) {
-      lines.push('', `\u2753 Not heard from: ${quiet.map((p) => p.name.split(' ')[0]).join(', ')}`)
+      lines.push('', `❓ Not heard from: ${quiet.map((p) => p.name.split(' ')[0]).join(', ')}`)
     }
     navigator.clipboard.writeText(lines.join('\n')).then(() => {
       setCopied(true)
@@ -133,235 +278,528 @@ export default function MatchDetail({
     })
   }
 
+  const isHome = fixture.home_away === 'H'
+
   return (
-    <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.4)',
+        zIndex: 50,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+      }}
+      onClick={onClose}
+    >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-2xl p-5 max-w-md w-full max-h-[85vh] overflow-auto border border-gray-200 shadow-2xl"
+        style={{
+          background: '#fff',
+          border: `1px solid ${C_RULE}`,
+          maxWidth: 460,
+          width: '100%',
+          maxHeight: '88vh',
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
       >
-        <div className="flex justify-between items-start mb-3">
+        {/* Header band */}
+        <div
+          style={{
+            background: C_GREEN,
+            padding: '16px 24px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            flexShrink: 0,
+          }}
+        >
           <div>
-            <div className="text-xs text-gray-400 font-semibold uppercase tracking-wider">
-              {formatMatchDate(fixture.match_date)} &middot; {fixture.home_away === 'H' ? 'Home' : 'Away'}
+            <div
+              style={{
+                fontFamily: mono,
+                fontSize: 10,
+                letterSpacing: 3,
+                color: C_RED,
+                textTransform: 'uppercase',
+                fontWeight: 700,
+                marginBottom: 4,
+              }}
+            >
+              — {formatMatchDate(fixture.match_date)} &middot;{' '}
+              <span
+                style={{
+                  background: isHome ? 'rgba(255,255,255,0.15)' : C_RED,
+                  padding: '1px 6px',
+                  letterSpacing: 2,
+                }}
+              >
+                {isHome ? 'Home' : 'Away'}
+              </span>
             </div>
-            <div className="text-xl font-bold text-gray-900 mt-0.5">vs {fixture.opponent}</div>
+            <div
+              style={{
+                fontFamily: display,
+                fontSize: 22,
+                fontStyle: 'italic',
+                fontWeight: 400,
+                color: '#fff',
+                lineHeight: 1.1,
+              }}
+            >
+              <span style={{ fontStyle: 'normal', opacity: 0.6, fontSize: 16 }}>v. </span>
+              {fixture.opponent}
+            </div>
           </div>
-          <button onClick={onClose} className="text-gray-300 hover:text-gray-500 text-2xl leading-none transition-colors">
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'rgba(255,255,255,0.5)',
+              fontSize: 24,
+              cursor: 'pointer',
+              lineHeight: 1,
+              padding: '0 0 0 12px',
+            }}
+          >
             &times;
           </button>
         </div>
 
-        <div className="flex gap-2 mb-3 flex-wrap">
-          {editingTimes ? (
-            <div className="bg-gray-50 rounded-lg px-3 py-1.5 text-xs text-gray-500 flex items-center gap-1.5 border border-gray-100">
-              {'\u23F0'} Meet{' '}
-              <input
-                type="time"
-                value={meetTime}
-                onChange={(e) => setMeetTime(e.target.value)}
-                className="border border-gray-300 rounded px-1.5 py-0.5 text-xs text-gray-800 font-bold w-20"
-              />
-              Start{' '}
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="border border-gray-300 rounded px-1.5 py-0.5 text-xs text-gray-800 font-bold w-20"
-              />
-              <button onClick={saveTimes} className="text-emerald-600 font-bold hover:text-emerald-800 ml-1">{'\u2713'}</button>
-              <button onClick={() => setEditingTimes(false)} className="text-gray-400 font-bold hover:text-gray-600">{'\u2717'}</button>
+        {/* Body */}
+        <div style={{ padding: '20px 24px', background: C_CREAM, flexGrow: 1 }}>
+
+          {/* Time row */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+            {editingTimes ? (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  background: '#fff',
+                  border: `1px solid ${C_RULE}`,
+                  padding: '8px 12px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <span style={{ fontFamily: mono, fontSize: 10, color: '#888', letterSpacing: 1 }}>MEET</span>
+                <input
+                  type="time"
+                  value={meetTime}
+                  onChange={(e) => setMeetTime(e.target.value)}
+                  style={{
+                    border: `1px solid ${C_RULE}`,
+                    padding: '3px 6px',
+                    fontFamily: mono,
+                    fontSize: 12,
+                    color: C_INK,
+                    outline: 'none',
+                    width: 80,
+                  }}
+                />
+                <span style={{ fontFamily: mono, fontSize: 10, color: '#888', letterSpacing: 1 }}>START</span>
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  style={{
+                    border: `1px solid ${C_RULE}`,
+                    padding: '3px 6px',
+                    fontFamily: mono,
+                    fontSize: 12,
+                    color: C_INK,
+                    outline: 'none',
+                    width: 80,
+                  }}
+                />
+                <button
+                  onClick={saveTimes}
+                  style={{
+                    background: C_GREEN,
+                    border: 'none',
+                    color: '#fff',
+                    fontFamily: mono,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: '4px 10px',
+                    cursor: 'pointer',
+                    letterSpacing: 1,
+                  }}
+                >
+                  ✓ Save
+                </button>
+                <button
+                  onClick={() => setEditingTimes(false)}
+                  style={{
+                    background: 'none',
+                    border: `1px solid ${C_RULE}`,
+                    color: '#888',
+                    fontFamily: mono,
+                    fontSize: 11,
+                    padding: '4px 10px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✗
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setEditingTimes(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: '#fff',
+                  border: `1px solid ${C_RULE}`,
+                  padding: '7px 12px',
+                  cursor: 'pointer',
+                  fontFamily: sansTight,
+                  fontSize: 13,
+                  color: '#666',
+                  transition: 'border-color 0.1s',
+                }}
+              >
+                ⏰ Meet{' '}
+                <strong style={{ color: C_INK, fontFamily: mono, fontSize: 12 }}>
+                  {meetTime || '--:--'}
+                </strong>{' '}
+                · Start{' '}
+                <strong style={{ color: C_INK, fontFamily: mono, fontSize: 12 }}>
+                  {startTime || '--:--'}
+                </strong>
+                <span style={{ color: '#bbb', fontSize: 11, marginLeft: 4 }}>✎</span>
+              </button>
+            )}
+
+            {mapsUrl && (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: '#fff',
+                  border: `1px solid ${C_RULE}`,
+                  padding: '7px 12px',
+                  fontFamily: sansTight,
+                  fontSize: 13,
+                  color: C_GREEN,
+                  textDecoration: 'none',
+                  transition: 'border-color 0.1s',
+                }}
+              >
+                📍 {fixture.venue} ↗
+              </a>
+            )}
+          </div>
+
+          {/* Counts */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+            <div
+              style={{
+                background: '#fff',
+                border: `1px solid ${C_RULE}`,
+                borderLeft: `3px solid ${C_GREEN}`,
+                padding: '10px 14px',
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: display,
+                  fontSize: 28,
+                  fontWeight: 500,
+                  color: C_GREEN,
+                  lineHeight: 1,
+                }}
+              >
+                {yes.length}
+              </div>
+              <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: 2, color: C_GREEN, textTransform: 'uppercase', marginTop: 4 }}>
+                Available
+              </div>
+            </div>
+            <div
+              style={{
+                background: '#fff',
+                border: `1px solid ${C_RULE}`,
+                borderLeft: `3px solid ${C_AMBER_BD}`,
+                padding: '10px 14px',
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: display,
+                  fontSize: 28,
+                  fontWeight: 500,
+                  color: C_AMBER,
+                  lineHeight: 1,
+                }}
+              >
+                {maybe.length}
+              </div>
+              <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: 2, color: C_AMBER, textTransform: 'uppercase', marginTop: 4 }}>
+                Tentative
+              </div>
+            </div>
+          </div>
+
+          {/* Status banner */}
+          {total >= 11 ? (
+            <div
+              style={{
+                background: '#f0fdf4',
+                border: `1px solid ${C_GREEN}`,
+                borderLeft: `3px solid ${C_GREEN}`,
+                padding: '8px 14px',
+                marginBottom: 14,
+                fontFamily: mono,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1.5,
+                color: C_GREEN,
+                textTransform: 'uppercase',
+                textAlign: 'center',
+              }}
+            >
+              ✓ Got a team{selectedCount > 0 && ` · ${selectedCount} selected`}
             </div>
           ) : (
-            <button
-              onClick={() => setEditingTimes(true)}
-              className="bg-gray-50 rounded-lg px-3 py-1.5 text-xs text-gray-500 flex items-center gap-1.5 border border-gray-100 hover:bg-gray-100 transition-colors cursor-pointer"
+            <div
+              style={{
+                background: '#fff5f5',
+                border: `1px solid ${C_RED}`,
+                borderLeft: `3px solid ${C_RED}`,
+                padding: '8px 14px',
+                marginBottom: 14,
+                fontFamily: mono,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1.5,
+                color: C_RED,
+                textTransform: 'uppercase',
+                textAlign: 'center',
+              }}
             >
-              {'\u23F0'} Meet <strong className="text-gray-800">{meetTime || '--:--'}</strong> &middot; Start{' '}
-              <strong className="text-gray-800">{startTime || '--:--'}</strong>
-              <span className="text-gray-300 text-[10px] ml-1">{'\u270E'}</span>
+              Need {11 - total} more · {quiet.length} no response
+            </div>
+          )}
+
+          {/* Select XI toggle */}
+          {selectable.length > 0 && (
+            <button
+              onClick={() => setSelectingXI(!selectingXI)}
+              style={{
+                width: '100%',
+                padding: '10px 0',
+                background: selectingXI ? C_GREEN : '#fff',
+                border: `1px solid ${selectingXI ? C_GREEN : C_RULE}`,
+                color: selectingXI ? '#fff' : '#666',
+                fontFamily: mono,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: 2,
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+                marginBottom: 14,
+                transition: 'all 0.15s',
+              }}
+            >
+              {selectingXI
+                ? `Selecting XI (${selectedCount}/11) — tap players below`
+                : selectedCount > 0
+                  ? `XI Selected (${selectedCount}) — tap to edit`
+                  : 'Select Playing XI'}
             </button>
           )}
-          {mapsUrl && (
-            <a
-              href={mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-sky-50 rounded-lg px-3 py-1.5 text-xs text-sky-700 flex items-center gap-1.5 no-underline border border-sky-100 hover:bg-sky-100 transition-colors font-medium"
+
+          {/* XI selection mode */}
+          {selectingXI && (
+            <div
+              style={{
+                marginBottom: 14,
+                border: `1px solid ${C_RULE}`,
+                padding: '12px',
+                background: '#fff',
+              }}
             >
-              {'\uD83D\uDCCD'} {fixture.venue} {'\u2197'}
-            </a>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-200">
-            <div className="text-2xl font-extrabold text-emerald-700 font-mono">{yes.length}</div>
-            <div className="text-[10px] text-emerald-600 uppercase tracking-wider font-semibold">Available</div>
-          </div>
-          <div className="bg-amber-50 rounded-xl p-3 border border-amber-200">
-            <div className="text-2xl font-extrabold text-amber-700 font-mono">{maybe.length}</div>
-            <div className="text-[10px] text-amber-600 uppercase tracking-wider font-semibold">Tentative</div>
-          </div>
-        </div>
-
-        {total >= 11 ? (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-lg py-2 px-3 mb-3 text-sm text-emerald-700 text-center font-semibold">
-            {'\u2713'} Got a team{selectedCount > 0 && ` \u00B7 ${selectedCount} selected`}
-          </div>
-        ) : (
-          <div className="bg-red-50 border border-red-200 rounded-lg py-2 px-3 mb-3 text-sm text-red-600 text-center font-semibold">
-            Need {11 - total} more &middot; {quiet.length} no response
-          </div>
-        )}
-
-        {/* Select XI toggle */}
-        {selectable.length > 0 && (
-          <button
-            onClick={() => setSelectingXI(!selectingXI)}
-            className={`w-full py-2 rounded-lg text-xs font-semibold mb-3 border transition-colors ${
-              selectingXI
-                ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
-                : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
-            }`}
-          >
-            {selectingXI
-              ? `Selecting XI (${selectedCount}/11) \u2014 tap players below`
-              : selectedCount > 0
-                ? `XI Selected (${selectedCount}) \u2014 tap to edit`
-                : 'Select Playing XI'}
-          </button>
-        )}
-
-        {/* XI selection mode */}
-        {selectingXI && (
-          <div className="mb-3 border border-indigo-100 rounded-xl p-3 bg-indigo-50/30">
-            <div className="text-[10px] text-indigo-500 uppercase tracking-widest font-semibold mb-2">
-              Tap to select / deselect
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {selectable.map((p) => {
-                const sel = isSelected(p.id)
-                return (
-                  <button
+              <SectionLabel>Tap to select / deselect</SectionLabel>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {selectable.map((p) => (
+                  <PlayerChip
                     key={p.id}
-                    onClick={() => onToggleSelection(p.id, fixture.id)}
-                    className={`rounded-lg px-2.5 py-1.5 text-xs border font-medium transition-all ${
-                      sel
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                        : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
-                    }`}
-                  >
-                    {sel && '\u2713 '}{shortName(p)}
-                    {p.is_ringin && (
-                      <span className={`text-[9px] ml-1 px-1 rounded font-semibold ${sel ? 'bg-indigo-500 text-indigo-200' : 'bg-emerald-100 text-emerald-600'}`}>RI</span>
-                    )}
-                    {avMap[p.id]?.[fixture.id] === 'tentative' && (
-                      <span className={`text-[9px] ml-1 px-1 rounded font-semibold ${sel ? 'bg-indigo-500 text-indigo-200' : 'bg-amber-100 text-amber-600'}`}>TBC</span>
-                    )}
-                  </button>
-                )
-              })}
+                    p={p}
+                    avMap={avMap}
+                    fixtureId={fixture.id}
+                    isSelected={isSelected(p.id)}
+                    onToggle={() => onToggleSelection(p.id, fixture.id)}
+                    selectingXI
+                  />
+                ))}
+              </div>
+              {selectedCount > 11 && (
+                <div
+                  style={{
+                    fontFamily: mono,
+                    fontSize: 11,
+                    color: C_RED,
+                    marginTop: 8,
+                    letterSpacing: 1,
+                  }}
+                >
+                  {selectedCount} selected — that&apos;s more than XI
+                </div>
+              )}
             </div>
-            {selectedCount > 11 && (
-              <div className="text-xs text-red-500 font-medium mt-2">
-                {selectedCount} selected &mdash; that&apos;s more than XI
+          )}
+
+          {/* Player lists */}
+          {!selectingXI && (
+            <>
+              {selectedCount > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <SectionLabel>Playing XI</SectionLabel>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {selectable.filter((p) => isSelected(p.id)).map((p) => (
+                      <PlayerChip key={p.id} p={p} avMap={avMap} fixtureId={fixture.id} isSelected />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(() => {
+                const list = selectedCount > 0 ? yes.filter((p) => !isSelected(p.id)) : yes
+                return list.length > 0 ? (
+                  <div style={{ marginBottom: 12 }}>
+                    <SectionLabel>{selectedCount > 0 ? 'Reserves' : 'Available'}</SectionLabel>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {list.map((p) => (
+                        <PlayerChip key={p.id} p={p} avMap={avMap} fixtureId={fixture.id} isSelected={false} />
+                      ))}
+                    </div>
+                  </div>
+                ) : null
+              })()}
+
+              {(() => {
+                const list = selectedCount > 0 ? maybe.filter((p) => !isSelected(p.id)) : maybe
+                return list.length > 0 ? (
+                  <div style={{ marginBottom: 12 }}>
+                    <SectionLabel>Tentative</SectionLabel>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {list.map((p) => (
+                        <PlayerChip key={p.id} p={p} avMap={avMap} fixtureId={fixture.id} isSelected={false} />
+                      ))}
+                    </div>
+                  </div>
+                ) : null
+              })()}
+
+              {no.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <SectionLabel>Unavailable</SectionLabel>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {no.map((p) => (
+                      <span
+                        key={p.id}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          padding: '4px 10px',
+                          fontFamily: sansTight,
+                          fontSize: 12,
+                          fontStyle: 'italic',
+                          border: `1px solid ${C_RULE}`,
+                          color: C_RED,
+                          background: '#fff5f5',
+                        }}
+                      >
+                        {shortName(p)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {quiet.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <SectionLabel>No Response</SectionLabel>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {quiet.map((p) => (
+                      <span
+                        key={p.id}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          padding: '4px 10px',
+                          fontFamily: sansTight,
+                          fontSize: 12,
+                          fontStyle: 'italic',
+                          border: `1px solid ${C_RULE}`,
+                          color: '#aaa',
+                          background: C_CREAM,
+                        }}
+                      >
+                        {shortName(p)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Copy button */}
+          <div style={{ borderTop: `1px solid ${C_RULE}`, marginTop: 8, paddingTop: 16 }}>
+            <button
+              onClick={copyTeamList}
+              style={{
+                width: '100%',
+                padding: '12px 22px',
+                background: C_GREEN,
+                border: 'none',
+                color: '#fff',
+                fontFamily: mono,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 2,
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                transition: 'background 0.15s',
+              }}
+            >
+              📋 {selectedCount > 0 ? 'Copy XI for WhatsApp' : 'Copy Team List for WhatsApp'}
+            </button>
+            {copied && (
+              <div
+                style={{
+                  marginTop: 10,
+                  textAlign: 'center',
+                  fontFamily: mono,
+                  fontSize: 11,
+                  letterSpacing: 1.5,
+                  color: C_GREEN,
+                  textTransform: 'uppercase',
+                  fontWeight: 700,
+                }}
+              >
+                ✓ Copied! Paste into WhatsApp
               </div>
             )}
           </div>
-        )}
-
-        {/* Player lists */}
-        {!selectingXI && (
-          <>
-            {selectedCount > 0 && (
-              <div className="mb-2.5">
-                <div className="text-[10px] text-indigo-500 uppercase tracking-widest font-semibold mb-1">Playing XI</div>
-                <div className="flex flex-wrap gap-1">
-                  {selectable.filter((p) => isSelected(p.id)).map((p) => (
-                    <span key={p.id} className="rounded-md px-2 py-0.5 text-xs border inline-flex items-center gap-1 font-medium bg-indigo-50 text-indigo-700 border-indigo-200">
-                      {shortName(p)}
-                      {p.is_ringin && <span className="text-[9px] text-emerald-600 bg-emerald-100 px-1 rounded font-semibold">RI</span>}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {(() => {
-              const list = selectedCount > 0 ? yes.filter((p) => !isSelected(p.id)) : yes
-              return list.length > 0 ? (
-                <div className="mb-2.5">
-                  <div className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold mb-1">{selectedCount > 0 ? 'Reserves' : 'Available'}</div>
-                  <div className="flex flex-wrap gap-1">
-                    {list.map((p) => (
-                      <span key={p.id} className="rounded-md px-2 py-0.5 text-xs border inline-flex items-center gap-1 font-medium text-emerald-700 border-emerald-200 bg-emerald-50">
-                        {shortName(p)}
-                        {p.is_ringin && <span className="text-[9px] text-emerald-600 bg-emerald-100 px-1 rounded font-semibold">RI</span>}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null
-            })()}
-
-            {(() => {
-              const list = selectedCount > 0 ? maybe.filter((p) => !isSelected(p.id)) : maybe
-              return list.length > 0 ? (
-                <div className="mb-2.5">
-                  <div className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold mb-1">Tentative</div>
-                  <div className="flex flex-wrap gap-1">
-                    {list.map((p) => (
-                      <span key={p.id} className="rounded-md px-2 py-0.5 text-xs border inline-flex items-center gap-1 font-medium text-amber-700 border-amber-200 bg-amber-50">
-                        {shortName(p)}
-                        {p.is_ringin && <span className="text-[9px] text-emerald-600 bg-emerald-100 px-1 rounded font-semibold">RI</span>}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null
-            })()}
-
-            {no.length > 0 && (
-              <div className="mb-2.5">
-                <div className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold mb-1">Unavailable</div>
-                <div className="flex flex-wrap gap-1">
-                  {no.map((p) => (
-                    <span key={p.id} className="rounded-md px-2 py-0.5 text-xs border inline-flex items-center gap-1 font-medium text-red-600 border-red-200 bg-red-50">
-                      {shortName(p)}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {quiet.length > 0 && (
-              <div className="mb-2.5">
-                <div className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold mb-1">No Response</div>
-                <div className="flex flex-wrap gap-1">
-                  {quiet.map((p) => (
-                    <span key={p.id} className="rounded-md px-2 py-0.5 text-xs border inline-flex items-center gap-1 font-medium text-gray-400 border-gray-200 bg-gray-50">
-                      {shortName(p)}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        <div className="mt-4 pt-3 border-t border-gray-100">
-          <button
-            onClick={copyTeamList}
-            className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-emerald-700 transition-colors shadow-sm"
-          >
-            {'\uD83D\uDCCB'} {selectedCount > 0 ? 'Copy XI for WhatsApp' : 'Copy Team List for WhatsApp'}
-          </button>
         </div>
-        {copied && (
-          <div className="mt-3 text-center text-sm text-emerald-600 font-semibold">
-            {'\u2713'} Copied! Paste into WhatsApp
-          </div>
-        )}
       </div>
     </div>
   )

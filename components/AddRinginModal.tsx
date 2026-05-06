@@ -1,14 +1,18 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import {
+  C_GREEN,
+  C_RED,
+  C_CREAM,
+  C_INK,
+  C_RULE,
+  display,
+  sansTight,
+  mono,
+} from '@/lib/c-theme/tokens'
 
 const ROLES = ['BAT', 'BOWL', 'AR', 'WK']
-const ROLE_COLOURS: Record<string, string> = {
-  BAT: 'text-sky-700 border-sky-200 bg-sky-50',
-  BOWL: 'text-rose-700 border-rose-200 bg-rose-50',
-  AR: 'text-violet-700 border-violet-200 bg-violet-50',
-  WK: 'text-teal-700 border-teal-200 bg-teal-50',
-}
 
 export default function AddRinginModal({
   onAdd,
@@ -33,55 +37,174 @@ export default function AddRinginModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-5" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl p-6 max-w-sm w-full border border-gray-200 shadow-2xl">
-        <div className="text-xs text-emerald-700 uppercase tracking-widest font-semibold mb-1">Add Ring-In</div>
-        <div className="text-sm text-gray-500 mb-5">
-          They can set availability across the whole season. Promote to full member any time.
-        </div>
-        <label className="text-xs text-gray-400 font-medium block mb-1">Name</label>
-        <input
-          ref={inputRef}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') submit()
-          }}
-          placeholder="e.g. Pete from Otford"
-          className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-800 text-sm outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-100 mb-3 transition-all"
-        />
-        <label className="text-xs text-gray-400 font-medium block mb-1.5">Role</label>
-        <div className="flex gap-1.5 mb-5">
-          {ROLES.map((r) => (
-            <button
-              key={r}
-              onClick={() => setRole(r)}
-              className={`flex-1 py-2 rounded-lg border text-xs font-bold font-mono transition-all ${
-                role === r ? ROLE_COLOURS[r] : 'text-gray-400 border-gray-200 bg-white'
-              }`}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2.5 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 text-sm font-semibold hover:bg-gray-100 transition-colors"
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.4)',
+        zIndex: 50,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#fff',
+          border: `1px solid ${C_RULE}`,
+          maxWidth: 380,
+          width: '100%',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Header band */}
+        <div style={{ background: C_GREEN, padding: '16px 24px' }}>
+          <div
+            style={{
+              fontFamily: mono,
+              fontSize: 10,
+              letterSpacing: 3,
+              color: C_RED,
+              textTransform: 'uppercase',
+              fontWeight: 700,
+              marginBottom: 4,
+            }}
           >
-            Cancel
-          </button>
-          <button
-            onClick={submit}
-            disabled={!name.trim()}
-            className={`flex-1 py-2.5 rounded-lg text-sm font-bold border transition-all ${
-              name.trim()
-                ? 'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700'
-                : 'bg-gray-100 border-gray-200 text-gray-400'
-            }`}
+            — Captain
+          </div>
+          <div
+            style={{
+              fontFamily: display,
+              fontSize: 22,
+              fontStyle: 'italic',
+              fontWeight: 400,
+              color: '#fff',
+              lineHeight: 1.1,
+            }}
           >
             Add Ring-In
-          </button>
+          </div>
+          <div style={{ fontFamily: sansTight, fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
+            They can set availability across the season. Promote to full member any time.
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '24px', background: C_CREAM }}>
+          <label
+            style={{
+              fontFamily: mono,
+              fontSize: 10,
+              letterSpacing: 2,
+              color: '#888',
+              textTransform: 'uppercase',
+              display: 'block',
+              marginBottom: 6,
+            }}
+          >
+            Name
+          </label>
+          <input
+            ref={inputRef}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+            placeholder="e.g. Pete from Otford"
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              background: '#fff',
+              border: `1px solid ${C_RULE}`,
+              color: C_INK,
+              fontFamily: sansTight,
+              fontSize: 14,
+              outline: 'none',
+              boxSizing: 'border-box',
+              marginBottom: 16,
+            }}
+          />
+
+          <label
+            style={{
+              fontFamily: mono,
+              fontSize: 10,
+              letterSpacing: 2,
+              color: '#888',
+              textTransform: 'uppercase',
+              display: 'block',
+              marginBottom: 8,
+            }}
+          >
+            Role
+          </label>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
+            {ROLES.map((r) => (
+              <button
+                key={r}
+                onClick={() => setRole(r)}
+                style={{
+                  flex: 1,
+                  padding: '8px 0',
+                  border: `1.5px solid ${role === r ? C_GREEN : C_RULE}`,
+                  background: role === r ? C_GREEN : '#fff',
+                  color: role === r ? '#fff' : '#888',
+                  fontFamily: mono,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: 1,
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={onClose}
+              style={{
+                flex: 1,
+                padding: '12px 0',
+                background: '#fff',
+                border: `1px solid ${C_RULE}`,
+                color: '#888',
+                fontFamily: mono,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 2,
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={submit}
+              disabled={!name.trim()}
+              style={{
+                flex: 1,
+                padding: '12px 0',
+                background: name.trim() ? C_GREEN : '#ddd',
+                border: 'none',
+                color: '#fff',
+                fontFamily: mono,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 2,
+                textTransform: 'uppercase',
+                cursor: name.trim() ? 'pointer' : 'not-allowed',
+                transition: 'background 0.15s',
+              }}
+            >
+              Add Ring-In
+            </button>
+          </div>
         </div>
       </div>
     </div>

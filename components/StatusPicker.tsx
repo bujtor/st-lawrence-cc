@@ -1,20 +1,28 @@
 'use client'
 
 import { useRef, useEffect } from 'react'
+import {
+  C_GREEN,
+  C_RED,
+  C_CREAM,
+  C_INK,
+  C_RULE,
+  mono,
+  sansTight,
+} from '@/lib/c-theme/tokens'
 
-const STATUS_STYLES: Record<string, { bg: string; bd: string; tx: string; sy: string }> = {
-  none: { bg: 'bg-gray-50', bd: 'border-gray-200', tx: 'text-gray-300', sy: '' },
-  available: { bg: 'bg-emerald-50', bd: 'border-emerald-400', tx: 'text-emerald-700', sy: '\u2713' },
-  unavailable: { bg: 'bg-red-50', bd: 'border-red-400', tx: 'text-red-600', sy: '\u2717' },
-  tentative: { bg: 'bg-amber-50', bd: 'border-amber-400', tx: 'text-amber-700', sy: '?' },
+const C_AMBER = '#b45309'
+const C_AMBER_BG = '#fffbeb'
+const C_AMBER_BD = '#fbbf24'
+
+const STATUS_CONFIG: Record<string, { bg: string; bd: string; tx: string; sy: string; label: string }> = {
+  available:   { bg: '#f0fdf4', bd: C_GREEN,     tx: C_GREEN,  sy: '✓', label: 'Available'   },
+  tentative:   { bg: C_AMBER_BG, bd: C_AMBER_BD, tx: C_AMBER,  sy: '?', label: 'Tentative'   },
+  unavailable: { bg: '#fff5f5',  bd: C_RED,      tx: C_RED,    sy: '✗', label: 'Unavailable' },
+  none:        { bg: C_CREAM,    bd: C_RULE,      tx: '#aaa',   sy: '○', label: 'Clear'       },
 }
 
-const OPTIONS: [string, string][] = [
-  ['available', 'Available'],
-  ['tentative', 'Tentative'],
-  ['unavailable', 'Unavailable'],
-  ['none', 'Clear'],
-]
+const OPTIONS = ['available', 'tentative', 'unavailable', 'none'] as const
 
 export default function StatusPicker({
   pos,
@@ -38,26 +46,63 @@ export default function StatusPicker({
   return (
     <div
       ref={ref}
-      className="fixed z-50 bg-white border border-gray-200 rounded-xl p-1.5 shadow-xl min-w-[152px] flex flex-col gap-0.5"
       style={{
-        left: Math.min(pos.x, typeof window !== 'undefined' ? window.innerWidth - 170 : pos.x),
-        top: Math.min(pos.y, typeof window !== 'undefined' ? window.innerHeight - 210 : pos.y),
+        position: 'fixed',
+        zIndex: 50,
+        background: '#fff',
+        border: `1px solid ${C_RULE}`,
+        padding: '6px',
+        minWidth: 160,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+        left: Math.min(pos.x, typeof window !== 'undefined' ? window.innerWidth - 178 : pos.x),
+        top: Math.min(pos.y, typeof window !== 'undefined' ? window.innerHeight - 220 : pos.y),
       }}
     >
-      {OPTIONS.map(([k, l]) => {
-        const s = STATUS_STYLES[k]
+      {OPTIONS.map((k) => {
+        const s = STATUS_CONFIG[k]
         return (
           <button
             key={k}
             onClick={() => onPick(k)}
-            className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-gray-50 text-gray-700 text-sm text-left transition-colors"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '8px 10px',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              fontFamily: sansTight,
+              fontSize: 13,
+              color: C_INK,
+              textAlign: 'left',
+              transition: 'background 0.1s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = C_CREAM)}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
             <span
-              className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold border-2 ${s.bg} ${s.bd} ${s.tx}`}
+              style={{
+                width: 22,
+                height: 22,
+                border: `1.5px solid ${s.bd}`,
+                background: s.bg,
+                color: s.tx,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: mono,
+                fontSize: 11,
+                fontWeight: 700,
+                flexShrink: 0,
+              }}
             >
-              {s.sy || '\u25CB'}
+              {s.sy}
             </span>
-            {l}
+            {s.label}
           </button>
         )
       })}

@@ -2,6 +2,16 @@
 
 import { useState, useRef, useEffect } from 'react'
 import type { Player } from '@/lib/supabase'
+import {
+  C_GREEN,
+  C_RED,
+  C_CREAM,
+  C_INK,
+  C_RULE,
+  display,
+  sansTight,
+  mono,
+} from '@/lib/c-theme/tokens'
 
 export default function PlayerSearch({
   allPlayers,
@@ -29,58 +39,195 @@ export default function PlayerSearch({
     <>
       <button
         onClick={() => setOpen(true)}
-        className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-colors flex items-center gap-1"
+        style={{
+          padding: '9px 18px',
+          background: C_GREEN,
+          color: '#fff',
+          fontFamily: mono,
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: 2,
+          textTransform: 'uppercase',
+          border: 'none',
+          cursor: 'pointer',
+        }}
       >
         + I&apos;m Playing
       </button>
 
       {open && (
-        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-5" onClick={() => setOpen(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl p-6 max-w-sm w-full border border-gray-200 shadow-2xl">
-            <div className="text-xs text-emerald-700 uppercase tracking-widest font-semibold mb-1">
-              Find Your Name
-            </div>
-            <div className="text-sm text-gray-500 mb-4">
-              Search for your name to start setting availability for the season.
-            </div>
-            <input
-              ref={inputRef}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Start typing your name..."
-              className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-800 text-sm outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-100 mb-3 transition-all"
-            />
-            <div className="max-h-64 overflow-y-auto">
-              {filtered.length === 0 && search.length > 0 && (
-                <div className="text-sm text-gray-400 text-center py-4">No matching players found</div>
-              )}
-              {filtered.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => {
-                    onActivate(p)
-                    setOpen(false)
-                    setSearch('')
-                  }}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-emerald-50 text-left transition-colors group"
-                >
-                  <span className="text-sm font-medium text-gray-700 group-hover:text-emerald-700">{p.name}</span>
-                  <span className="text-xs text-gray-300 group-hover:text-emerald-500 font-medium">Select &rarr;</span>
-                </button>
-              ))}
-              {search.length === 0 && (
-                <div className="text-xs text-gray-400 text-center py-3">
-                  {filtered.length} players not yet on the grid
-                </div>
-              )}
-            </div>
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <button
-                onClick={() => { setOpen(false); setSearch('') }}
-                className="w-full py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 text-sm font-semibold hover:bg-gray-100 transition-colors"
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.4)',
+            zIndex: 50,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+          }}
+          onClick={() => setOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#fff',
+              border: `1px solid ${C_RULE}`,
+              maxWidth: 380,
+              width: '100%',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Header band */}
+            <div style={{ background: C_GREEN, padding: '16px 24px' }}>
+              <div
+                style={{
+                  fontFamily: mono,
+                  fontSize: 10,
+                  letterSpacing: 3,
+                  color: C_RED,
+                  textTransform: 'uppercase',
+                  fontWeight: 700,
+                  marginBottom: 4,
+                }}
               >
-                Cancel
-              </button>
+                — Squad
+              </div>
+              <div
+                style={{
+                  fontFamily: display,
+                  fontSize: 22,
+                  fontStyle: 'italic',
+                  fontWeight: 400,
+                  color: '#fff',
+                  lineHeight: 1.1,
+                }}
+              >
+                Find Your Name
+              </div>
+              <div style={{ fontFamily: sansTight, fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
+                Search for your name to start setting availability for the season.
+              </div>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: '20px 24px', background: C_CREAM }}>
+              <input
+                ref={inputRef}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Start typing your name..."
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  background: '#fff',
+                  border: `1px solid ${C_RULE}`,
+                  color: C_INK,
+                  fontFamily: sansTight,
+                  fontSize: 14,
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  marginBottom: 8,
+                }}
+              />
+
+              <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+                {filtered.length === 0 && search.length > 0 && (
+                  <div
+                    style={{
+                      fontFamily: sansTight,
+                      fontSize: 13,
+                      color: '#aaa',
+                      textAlign: 'center',
+                      padding: '16px 0',
+                    }}
+                  >
+                    No matching players found
+                  </div>
+                )}
+                {filtered.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      onActivate(p)
+                      setOpen(false)
+                      setSearch('')
+                    }}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 12px',
+                      background: 'transparent',
+                      border: 'none',
+                      borderBottom: `1px dashed ${C_RULE}`,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'background 0.1s',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#fff')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <span
+                      style={{
+                        fontFamily: sansTight,
+                        fontSize: 14,
+                        color: C_INK,
+                        fontStyle: 'italic',
+                      }}
+                    >
+                      {p.name}
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: mono,
+                        fontSize: 10,
+                        color: C_GREEN,
+                        letterSpacing: 1,
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      Select →
+                    </span>
+                  </button>
+                ))}
+                {search.length === 0 && (
+                  <div
+                    style={{
+                      fontFamily: sansTight,
+                      fontSize: 12,
+                      color: '#aaa',
+                      textAlign: 'center',
+                      padding: '12px 0',
+                    }}
+                  >
+                    {filtered.length} players not yet on the grid
+                  </div>
+                )}
+              </div>
+
+              <div style={{ borderTop: `1px solid ${C_RULE}`, marginTop: 12, paddingTop: 12 }}>
+                <button
+                  onClick={() => { setOpen(false); setSearch('') }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 0',
+                    background: '#fff',
+                    border: `1px solid ${C_RULE}`,
+                    color: '#888',
+                    fontFamily: mono,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: 2,
+                    textTransform: 'uppercase',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

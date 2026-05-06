@@ -7,22 +7,38 @@ import MatchDetail from './MatchDetail'
 import AddRinginModal from './AddRinginModal'
 import StatusPicker from './StatusPicker'
 import PlayerSearch from './PlayerSearch'
+import {
+  C_GREEN,
+  C_GREEN_LT,
+  C_RED,
+  C_CREAM,
+  C_INK,
+  C_RULE,
+  display,
+  sansTight,
+  mono,
+} from '@/lib/c-theme/tokens'
 
 type AvailabilityMap = Record<number, Record<number, string>>
 type SelectionMap = Record<number, Record<number, boolean>>
 
-const STATUS_STYLES: Record<string, { bg: string; bd: string; tx: string; sy: string }> = {
-  none: { bg: 'bg-gray-50', bd: 'border-gray-200', tx: 'text-gray-300', sy: '' },
-  available: { bg: 'bg-emerald-50', bd: 'border-emerald-400', tx: 'text-emerald-700', sy: '\u2713' },
-  unavailable: { bg: 'bg-red-50', bd: 'border-red-400', tx: 'text-red-600', sy: '\u2717' },
-  tentative: { bg: 'bg-amber-50', bd: 'border-amber-400', tx: 'text-amber-700', sy: '?' },
+const C_AMBER = '#b45309'
+const C_AMBER_BD = '#fbbf24'
+
+// C-theme status colours (inline style based)
+const STATUS_C: Record<string, { bg: string; bd: string; tx: string; sy: string }> = {
+  none:        { bg: C_CREAM,    bd: C_RULE,      tx: '#ccc',     sy: '·'  },
+  available:   { bg: '#f0fdf4',  bd: C_GREEN,     tx: C_GREEN,    sy: '✓'  },
+  unavailable: { bg: '#fff5f5',  bd: C_RED,       tx: C_RED,      sy: '✗'  },
+  tentative:   { bg: '#fffbeb',  bd: C_AMBER_BD,  tx: C_AMBER,    sy: '?'  },
 }
 
-const ROLE_COLOURS: Record<string, string> = {
-  BAT: 'text-sky-700 border-sky-200 bg-sky-50',
-  BOWL: 'text-rose-700 border-rose-200 bg-rose-50',
-  AR: 'text-violet-700 border-violet-200 bg-violet-50',
-  WK: 'text-teal-700 border-teal-200 bg-teal-50',
+// Role display using C mono style
+const ROLE_BG: Record<string, string> = {
+  BAT:  C_GREEN,
+  BOWL: C_RED,
+  AR:   '#6d28d9',
+  WK:   '#0f766e',
 }
 
 const ROLES = ['BAT', 'BOWL', 'AR', 'WK'] as const
@@ -58,54 +74,127 @@ function PlayerRow({
     onRoleChange(player.id, next)
   }
 
+  const rowBg = isHovered ? '#f5f2eb' : 'transparent'
+
   return (
     <tr
       onMouseEnter={() => setHoveredPlayer(player.id)}
       onMouseLeave={() => setHoveredPlayer(null)}
-      className={`transition-colors ${isHovered ? 'bg-emerald-50/50' : ''}`}
+      style={{ background: rowBg, transition: 'background 0.1s' }}
     >
+      {/* Sticky name cell */}
       <td
-        className={`sticky left-0 z-10 px-2.5 py-1.5 whitespace-nowrap border-b border-gray-100 transition-colors ${
-          isHovered ? 'bg-emerald-50/50' : 'bg-white'
-        }`}
+        style={{
+          position: 'sticky',
+          left: 0,
+          zIndex: 10,
+          padding: '5px 10px 5px 8px',
+          whiteSpace: 'nowrap',
+          borderBottom: `1px dashed ${C_RULE}`,
+          background: isHovered ? '#f5f2eb' : '#fff',
+          transition: 'background 0.1s',
+          minWidth: 160,
+        }}
       >
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {/* Role badge */}
           <button
             onClick={cycleRole}
             title="Click to change role"
-            className={`w-7 h-5 rounded flex items-center justify-center text-[9px] font-bold font-mono border cursor-pointer hover:opacity-70 transition-opacity ${
-              player.is_ringin ? 'border-dashed' : ''
-            } ${ROLE_COLOURS[player.role]}`}
+            style={{
+              width: 28,
+              height: 18,
+              background: player.is_ringin ? 'transparent' : ROLE_BG[player.role] || C_GREEN,
+              border: player.is_ringin
+                ? `1.5px dashed ${ROLE_BG[player.role] || C_GREEN}`
+                : 'none',
+              color: player.is_ringin ? (ROLE_BG[player.role] || C_GREEN) : '#fff',
+              fontFamily: mono,
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: 0.5,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              transition: 'opacity 0.1s',
+            }}
           >
             {player.role}
           </button>
-          <div className={`text-[13px] font-medium ${player.is_ringin ? 'text-gray-500' : 'text-gray-800'}`}>
+
+          {/* Player name */}
+          <div
+            style={{
+              fontFamily: display,
+              fontSize: 15,
+              fontStyle: 'italic',
+              fontWeight: 400,
+              color: player.is_ringin ? '#999' : C_INK,
+              lineHeight: 1.2,
+            }}
+          >
             {player.name.split(' ')[0]}{' '}
-            <span className="text-gray-400 font-normal">{player.name.split(' ').slice(1).join(' ')}</span>
+            <span style={{ color: '#aaa', fontStyle: 'normal', fontSize: 13 }}>
+              {player.name.split(' ').slice(1).join(' ')}
+            </span>
           </div>
+
           {player.is_ringin && (
-            <span className="text-[9px] text-emerald-600 bg-emerald-50 border border-emerald-200 px-1 rounded font-semibold leading-tight">
+            <span
+              style={{
+                fontFamily: mono,
+                fontSize: 8,
+                color: C_GREEN,
+                border: `1px solid ${C_GREEN}`,
+                padding: '1px 4px',
+                letterSpacing: 1,
+                textTransform: 'uppercase',
+                lineHeight: 1.3,
+                flexShrink: 0,
+              }}
+            >
               RI
             </span>
           )}
         </div>
       </td>
+
+      {/* Status cells */}
       {fixtures.map((fx) => {
         const st = avMap[fx.id] || 'none'
-        const s = STATUS_STYLES[st]
+        const s = STATUS_C[st]
         return (
           <td
             key={fx.id}
             onClick={(e) => onCellClick(player.id, fx.id, e)}
-            className="p-px text-center cursor-pointer border-b border-gray-100"
+            style={{
+              padding: 2,
+              textAlign: 'center',
+              cursor: 'pointer',
+              borderBottom: `1px dashed ${C_RULE}`,
+            }}
           >
             <div
-              className={`w-full h-7 rounded border flex items-center justify-center text-xs font-bold ${
-                player.is_ringin ? 'border-dashed' : ''
-              } ${s.bg} ${s.bd} ${s.tx} transition-transform`}
-              style={{ transform: isHovered ? 'scale(1.1)' : 'scale(1)' }}
+              style={{
+                width: '100%',
+                height: 26,
+                border: `1px solid ${s.bd}`,
+                borderStyle: player.is_ringin ? 'dashed' : 'solid',
+                background: s.bg,
+                color: s.tx,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: mono,
+                fontSize: 11,
+                fontWeight: 700,
+                transform: isHovered ? 'scale(1.08)' : 'scale(1)',
+                transition: 'transform 0.1s',
+              }}
             >
-              {s.sy || '\u00B7'}
+              {s.sy}
             </div>
           </td>
         )
@@ -147,7 +236,6 @@ export default function AvailabilityGrid({
   const [avMap, setAvMap] = useState<AvailabilityMap>(buildAvMap(initialAvailability))
   const [selMap, setSelMap] = useState<SelectionMap>(buildSelMap(initialAvailability))
   const [activatedPlayerIds, setActivatedPlayerIds] = useState<Set<number>>(() => {
-    // Players who have any availability record are automatically active
     const ids = new Set<number>()
     initialAvailability.forEach((a) => ids.add(a.player_id))
     return ids
@@ -159,7 +247,6 @@ export default function AvailabilityGrid({
   const [newRingins, setNewRingins] = useState<Player[]>([])
   const [roleOverrides, setRoleOverrides] = useState<Record<number, string>>({})
 
-  // Active players = those in the squad who have set availability + any new ring-ins
   const activePlayers = [
     ...allPlayers.filter((p) => activatedPlayerIds.has(p.id)),
     ...newRingins,
@@ -177,13 +264,11 @@ export default function AvailabilityGrid({
 
   const onPick = async (status: string) => {
     if (!picker) return
-
     setAvMap((prev) => ({
       ...prev,
       [picker.pid]: { ...prev[picker.pid], [picker.fid]: status },
     }))
     setPicker(null)
-
     try {
       await fetch('/api/availability', {
         method: 'POST',
@@ -202,12 +287,10 @@ export default function AvailabilityGrid({
   const toggleSelection = useCallback(async (playerId: number, fixtureId: number) => {
     const current = selMap[playerId]?.[fixtureId] || false
     const newVal = !current
-
     setSelMap((prev) => ({
       ...prev,
       [playerId]: { ...prev[playerId], [fixtureId]: newVal },
     }))
-
     try {
       await fetch('/api/availability', {
         method: 'POST',
@@ -246,7 +329,6 @@ export default function AvailabilityGrid({
 
   const changeRole = useCallback(async (playerId: number, role: string) => {
     setRoleOverrides((prev) => ({ ...prev, [playerId]: role }))
-
     try {
       await fetch('/api/players', {
         method: 'PATCH',
@@ -262,7 +344,6 @@ export default function AvailabilityGrid({
     setFixtures((prev) =>
       prev.map((f) => (f.id === fixtureId ? { ...f, ...updates } : f))
     )
-    // Also update selectedFixture if it's the one being edited
     setSelectedFixture((prev) => (prev && prev.id === fixtureId ? { ...prev, ...updates } : prev))
   }, [])
 
@@ -285,53 +366,162 @@ export default function AvailabilityGrid({
   const ringins = activePlayers.filter((p) => p.is_ringin)
 
   return (
-    <div className="bg-white min-h-screen text-gray-800 font-sans">
-      {/* Header */}
-      <div className="px-4 pt-4 pb-2 max-w-[1500px] mx-auto border-b border-gray-100">
-        <div className="flex items-center gap-2 mb-2">
-          <Image src="/images/badge.png" alt="St Lawrence CC" width={100} height={36} className="h-8 w-auto" />
-          <div className="flex-1">
-            <h1 className="text-base font-bold tracking-tight text-gray-900 m-0">
-              St Lawrence CC
-            </h1>
-            <div className="text-[11px] text-gray-400 font-medium">2026 &middot; 1st XI Availability</div>
-          </div>
-          <PlayerSearch
-            allPlayers={allPlayers}
-            activePlayers={activePlayers}
-            onActivate={onActivatePlayer}
-          />
-          <button
-            onClick={() => setShowAddRingin(true)}
-            className="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold hover:bg-emerald-100 transition-colors flex items-center gap-1"
-          >
-            + Ring-In
-          </button>
-        </div>
-        <div className="flex gap-4 flex-wrap items-center text-[11px] text-gray-400 font-medium pb-1">
-          {[
-            ['available', 'Available', 'bg-emerald-50 border-emerald-400'],
-            ['tentative', 'Tentative', 'bg-amber-50 border-amber-400'],
-            ['unavailable', 'Unavailable', 'bg-red-50 border-red-400'],
-            ['none', 'No response', 'bg-gray-50 border-gray-200'],
-          ].map(([k, l, c]) => (
-            <div key={k} className="flex items-center gap-1.5">
-              <div className={`w-3 h-3 rounded-sm border ${c}`} />
-              {l}
+    <div style={{ background: C_CREAM, minHeight: '100vh', fontFamily: sansTight, color: C_INK }}>
+
+      {/* Page header band */}
+      <div style={{ background: C_GREEN }}>
+        <div style={{ maxWidth: 1500, margin: '0 auto', padding: '16px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+            {/* Badge */}
+            <Image
+              src="/images/badge.png"
+              alt="St Lawrence CC"
+              width={100}
+              height={36}
+              style={{ height: 32, width: 'auto', filter: 'invert(1)' }}
+            />
+
+            {/* Title block */}
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div
+                style={{
+                  fontFamily: mono,
+                  fontSize: 10,
+                  letterSpacing: 3,
+                  color: C_RED,
+                  textTransform: 'uppercase',
+                  fontWeight: 700,
+                  marginBottom: 2,
+                }}
+              >
+                — Availability
+              </div>
+              <div
+                style={{
+                  fontFamily: display,
+                  fontSize: 22,
+                  fontStyle: 'italic',
+                  fontWeight: 400,
+                  color: '#fff',
+                  lineHeight: 1.1,
+                  letterSpacing: -0.3,
+                }}
+              >
+                Pick the XI.
+              </div>
+              <div
+                style={{
+                  fontFamily: sansTight,
+                  fontSize: 12,
+                  color: 'rgba(255,255,255,0.55)',
+                  marginTop: 2,
+                }}
+              >
+                2026 · 1st XI Availability
+              </div>
             </div>
-          ))}
-          <div className="ml-auto text-gray-300 text-[10px]">
-            Tap cell = status &middot; Tap column header = match detail
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <PlayerSearch
+                allPlayers={allPlayers}
+                activePlayers={activePlayers}
+                onActivate={onActivatePlayer}
+              />
+              <button
+                onClick={() => setShowAddRingin(true)}
+                style={{
+                  padding: '9px 18px',
+                  background: 'transparent',
+                  border: `1px solid rgba(255,255,255,0.35)`,
+                  color: '#fff',
+                  fontFamily: mono,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: 2,
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  transition: 'border-color 0.15s',
+                }}
+              >
+                + Ring-In
+              </button>
+            </div>
+          </div>
+
+          {/* Legend */}
+          <div
+            style={{
+              display: 'flex',
+              gap: 16,
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              marginTop: 10,
+              paddingTop: 10,
+              borderTop: '1px solid rgba(255,255,255,0.1)',
+            }}
+          >
+            {([
+              ['available', 'Available', C_GREEN, '#f0fdf4'],
+              ['tentative', 'Tentative', C_AMBER_BD, '#fffbeb'],
+              ['unavailable', 'Unavailable', C_RED, '#fff5f5'],
+              ['none', 'No response', C_RULE, C_CREAM],
+            ] as [string, string, string, string][]).map(([k, l, bd, bg]) => (
+              <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div
+                  style={{
+                    width: 12,
+                    height: 12,
+                    border: `1.5px solid ${bd}`,
+                    background: bg,
+                    flexShrink: 0,
+                  }}
+                />
+                <span
+                  style={{
+                    fontFamily: mono,
+                    fontSize: 10,
+                    color: 'rgba(255,255,255,0.55)',
+                    letterSpacing: 1,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {l}
+                </span>
+              </div>
+            ))}
+            <div
+              style={{
+                marginLeft: 'auto',
+                fontFamily: mono,
+                fontSize: 9,
+                color: 'rgba(255,255,255,0.3)',
+                letterSpacing: 1,
+              }}
+            >
+              Tap cell = status · Tap column header = match detail
+            </div>
           </div>
         </div>
       </div>
 
       {/* Empty state */}
       {activePlayers.length === 0 && (
-        <div className="max-w-[1500px] mx-auto px-4 py-16 text-center">
-          <div className="text-4xl mb-4">{'\uD83C\uDFCF'}</div>
-          <h2 className="text-lg font-bold text-gray-700 mb-2">No players on the grid yet</h2>
-          <p className="text-sm text-gray-400 mb-4">
+        <div style={{ maxWidth: 1500, margin: '0 auto', padding: '64px 24px', textAlign: 'center' }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>🏏</div>
+          <div
+            style={{
+              fontFamily: display,
+              fontSize: 26,
+              fontStyle: 'italic',
+              color: C_INK,
+              marginBottom: 8,
+            }}
+          >
+            No players on the grid yet
+          </div>
+          <p style={{ fontFamily: sansTight, fontSize: 14, color: '#888', marginBottom: 16 }}>
             Click &ldquo;+ I&apos;m Playing&rdquo; to find your name and start setting availability.
           </p>
         </div>
@@ -340,58 +530,143 @@ export default function AvailabilityGrid({
       {/* Grid */}
       {activePlayers.length > 0 && (
         <div
-          className="overflow-x-auto overflow-y-auto mx-auto max-w-[1500px] px-4 pb-4"
-          style={{ maxHeight: 'calc(100vh - 160px)' }}
+          style={{
+            overflowX: 'auto',
+            overflowY: 'auto',
+            maxWidth: 1500,
+            margin: '0 auto',
+            padding: '0 16px 32px',
+            maxHeight: 'calc(100vh - 170px)',
+          }}
         >
-          <table className="border-separate" style={{ borderSpacing: 1, width: 'max-content', minWidth: '100%' }}>
+          <table
+            style={{
+              borderCollapse: 'separate',
+              borderSpacing: 1,
+              width: 'max-content',
+              minWidth: '100%',
+            }}
+          >
             <thead>
               <tr>
+                {/* Player column header */}
                 <th
-                  className="sticky left-0 z-20 bg-white px-2.5 py-1.5 text-left text-[10px] text-gray-400 font-semibold uppercase tracking-widest border-b-2 border-gray-200"
-                  style={{ minWidth: 150 }}
+                  style={{
+                    position: 'sticky',
+                    left: 0,
+                    zIndex: 20,
+                    background: '#fff',
+                    padding: '10px 10px',
+                    textAlign: 'left',
+                    borderBottom: `2px solid ${C_RULE}`,
+                    minWidth: 160,
+                    fontFamily: mono,
+                    fontSize: 10,
+                    letterSpacing: 2,
+                    color: '#aaa',
+                    textTransform: 'uppercase',
+                  }}
                 >
                   Player
                 </th>
+
+                {/* Fixture column headers */}
                 {fixtures.map((f) => {
                   const { month, day } = formatDate(f.match_date)
                   const a = cnt(f.id, 'available')
                   const t = cnt(f.id, 'tentative')
                   const tot = a + t
+                  const isHome = f.home_away === 'H'
                   return (
                     <th
                       key={f.id}
                       onClick={() => setSelectedFixture(f)}
-                      className="sticky top-0 z-10 bg-white text-center cursor-pointer hover:bg-gray-50 transition-colors border-b-2 border-gray-200 px-0.5 py-1.5"
-                      style={{ minWidth: 54, maxWidth: 54 }}
+                      style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 10,
+                        background: '#fff',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        borderBottom: `2px solid ${C_RULE}`,
+                        padding: '6px 2px',
+                        minWidth: 54,
+                        maxWidth: 54,
+                        transition: 'background 0.1s',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = C_CREAM)}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = '#fff')}
                     >
-                      <div className="text-[9px] font-bold text-gray-400 leading-none">{month}</div>
-                      <div className="text-[13px] font-extrabold text-gray-700 leading-tight">{day}</div>
-                      <div className="text-[8px] text-gray-400 mt-px truncate">
-                        {f.opponent.length > 9 ? f.opponent.substring(0, 8) + '\u2026' : f.opponent}
+                      <div style={{ fontFamily: mono, fontSize: 9, color: C_RED, fontWeight: 700, letterSpacing: 1 }}>
+                        {month}
                       </div>
-                      <div className={`text-[9px] font-bold ${f.home_away === 'H' ? 'text-emerald-600' : 'text-sky-600'}`}>
+                      <div
+                        style={{
+                          fontFamily: display,
+                          fontSize: 18,
+                          fontWeight: 500,
+                          color: C_INK,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {day}
+                      </div>
+                      <div
+                        style={{
+                          fontFamily: sansTight,
+                          fontSize: 8,
+                          color: '#999',
+                          marginTop: 1,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          maxWidth: 50,
+                        }}
+                      >
+                        {f.opponent.length > 9 ? f.opponent.substring(0, 8) + '…' : f.opponent}
+                      </div>
+                      <div
+                        style={{
+                          fontFamily: mono,
+                          fontSize: 8,
+                          fontWeight: 700,
+                          color: isHome ? C_GREEN : C_RED,
+                          letterSpacing: 0.5,
+                        }}
+                      >
                         {f.home_away}
                       </div>
                       {(f.meet_time || f.start_time) && (
-                        <div className="text-[8px] text-gray-400 leading-tight mt-px">
+                        <div style={{ fontFamily: mono, fontSize: 7, color: '#bbb', lineHeight: 1.3, marginTop: 1 }}>
                           {f.meet_time ? f.meet_time.slice(0, 5) : ''}
                           {f.meet_time && f.start_time ? '/' : ''}
                           {f.start_time ? f.start_time.slice(0, 5) : ''}
                         </div>
                       )}
+                      {/* Count badge */}
                       <div
-                        className={`mt-0.5 text-[10px] font-extrabold font-mono rounded px-1 ${
-                          tot < 11 ? 'text-red-500 bg-red-50' : 'text-emerald-700 bg-emerald-50'
-                        }`}
+                        style={{
+                          marginTop: 3,
+                          fontFamily: mono,
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: tot < 11 ? C_RED : C_GREEN,
+                          background: tot < 11 ? '#fff5f5' : '#f0fdf4',
+                          padding: '1px 4px',
+                          display: 'inline-block',
+                        }}
                       >
                         {a}
-                        {t > 0 && <span className="text-amber-600 text-[9px]">+{t}</span>}
+                        {t > 0 && (
+                          <span style={{ color: C_AMBER, fontSize: 9 }}>+{t}</span>
+                        )}
                       </div>
                     </th>
                   )
                 })}
               </tr>
             </thead>
+
             <tbody>
               {members.map((pl) => (
                 <PlayerRow
@@ -406,17 +681,34 @@ export default function AvailabilityGrid({
                 />
               ))}
 
+              {/* Ring-ins divider */}
               {ringins.length > 0 && (
                 <tr>
-                  <td colSpan={fixtures.length + 1} className="px-2.5 pt-2.5 pb-1">
-                    <div className="flex items-center gap-2 text-[10px] text-emerald-600/60 font-semibold uppercase tracking-widest">
-                      <div className="h-px flex-1 bg-emerald-200/50" />
+                  <td
+                    colSpan={fixtures.length + 1}
+                    style={{ padding: '10px 8px 4px' }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        fontFamily: mono,
+                        fontSize: 9,
+                        color: C_GREEN,
+                        letterSpacing: 2,
+                        textTransform: 'uppercase',
+                        opacity: 0.7,
+                      }}
+                    >
+                      <div style={{ height: 1, flex: 1, background: C_RULE }} />
                       Ring-ins
-                      <div className="h-px flex-1 bg-emerald-200/50" />
+                      <div style={{ height: 1, flex: 1, background: C_RULE }} />
                     </div>
                   </td>
                 </tr>
               )}
+
               {ringins.map((pl) => (
                 <PlayerRow
                   key={pl.id}
@@ -430,9 +722,25 @@ export default function AvailabilityGrid({
                 />
               ))}
             </tbody>
+
+            {/* Footer totals */}
             <tfoot>
               <tr>
-                <td className="sticky left-0 z-10 bg-white px-2.5 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-t-2 border-gray-200">
+                <td
+                  style={{
+                    position: 'sticky',
+                    left: 0,
+                    zIndex: 10,
+                    background: '#fff',
+                    padding: '8px 10px',
+                    borderTop: `2px solid ${C_RULE}`,
+                    fontFamily: mono,
+                    fontSize: 9,
+                    letterSpacing: 2,
+                    color: '#aaa',
+                    textTransform: 'uppercase',
+                  }}
+                >
                   Total
                 </td>
                 {fixtures.map((f) => {
@@ -441,26 +749,47 @@ export default function AvailabilityGrid({
                   const tot = a + t
                   const ok = tot >= 11
                   const mid = tot >= 9 && tot < 11
+                  const borderCol = ok ? C_GREEN : mid ? C_AMBER_BD : C_RED
+                  const textCol = ok ? C_GREEN : mid ? C_AMBER : C_RED
+                  const bgCol = ok ? '#f0fdf4' : mid ? '#fffbeb' : '#fff5f5'
                   return (
-                    <td key={f.id} className="text-center px-0.5 py-1.5 border-t-2 border-gray-200">
+                    <td
+                      key={f.id}
+                      style={{
+                        textAlign: 'center',
+                        padding: '4px 2px',
+                        borderTop: `2px solid ${C_RULE}`,
+                      }}
+                    >
                       <div
-                        className={`rounded-md py-1 border ${
-                          ok
-                            ? 'bg-emerald-50 border-emerald-200'
-                            : mid
-                            ? 'bg-amber-50 border-amber-200'
-                            : 'bg-red-50 border-red-200'
-                        }`}
+                        style={{
+                          border: `1px solid ${borderCol}`,
+                          background: bgCol,
+                          padding: '4px 0',
+                        }}
                       >
                         <div
-                          className={`text-sm font-extrabold font-mono ${
-                            ok ? 'text-emerald-700' : mid ? 'text-amber-700' : 'text-red-600'
-                          }`}
+                          style={{
+                            fontFamily: display,
+                            fontSize: 18,
+                            fontWeight: 500,
+                            color: textCol,
+                            lineHeight: 1,
+                          }}
                         >
                           {a}
                         </div>
-                        <div className={`text-[8px] font-semibold ${ok ? 'text-emerald-500' : 'text-gray-400'}`}>
-                          {ok ? '\u2713 XI' : `need ${11 - tot}`}
+                        <div
+                          style={{
+                            fontFamily: mono,
+                            fontSize: 8,
+                            fontWeight: 700,
+                            color: textCol,
+                            letterSpacing: 0.5,
+                            opacity: 0.8,
+                          }}
+                        >
+                          {ok ? '✓ XI' : `need ${11 - tot}`}
                         </div>
                       </div>
                     </td>
@@ -473,7 +802,9 @@ export default function AvailabilityGrid({
       )}
 
       {/* Modals */}
-      {picker && <StatusPicker pos={{ x: picker.x, y: picker.y }} onPick={onPick} onClose={() => setPicker(null)} />}
+      {picker && (
+        <StatusPicker pos={{ x: picker.x, y: picker.y }} onPick={onPick} onClose={() => setPicker(null)} />
+      )}
       {selectedFixture && (
         <MatchDetail
           fixture={selectedFixture}
@@ -486,7 +817,9 @@ export default function AvailabilityGrid({
           onUpdateFixture={updateFixture}
         />
       )}
-      {showAddRingin && <AddRinginModal onAdd={addRingin} onClose={() => setShowAddRingin(false)} />}
+      {showAddRingin && (
+        <AddRinginModal onAdd={addRingin} onClose={() => setShowAddRingin(false)} />
+      )}
     </div>
   )
 }
