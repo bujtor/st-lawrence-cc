@@ -188,22 +188,23 @@ export default async function CandidateCHome() {
             margin: '0 auto',
           }}
         >
-          {/* Badge — anchors the brand mark above the editorial type */}
+          {/* Badge — the primary mark; sized big since the typographic
+              wordmark below has been removed (it duplicated this). */}
           <Image
             src="/images/badge.png"
             alt="St Lawrence Cricket Club"
-            width={420}
-            height={290}
+            width={760}
+            height={524}
             priority
             style={{
-              height: 'clamp(96px, 14vw, 160px)',
+              height: 'clamp(180px, 28vw, 360px)',
               width: 'auto',
-              marginBottom: 26,
+              marginBottom: 32,
               display: 'block',
-              filter: 'brightness(0) invert(1) drop-shadow(0 4px 14px rgba(0,0,0,.35))',
+              filter: 'brightness(0) invert(1) drop-shadow(0 6px 24px rgba(0,0,0,.4))',
             }}
           />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
             <div style={{ width: 48, height: 2, background: C_RED }} />
             <div
               style={{
@@ -218,44 +219,15 @@ export default async function CandidateCHome() {
               Village Cricket, Since the year of the bicycle
             </div>
           </div>
-          <h1
-            style={{
-              fontFamily: display,
-              fontSize: 'clamp(60px, 12vw, 180px)',
-              lineHeight: 0.82,
-              fontWeight: 300,
-              color: '#fff',
-              margin: 0,
-              letterSpacing: -6,
-            }}
-          >
-            St Lawrence
-            <br />
-            <span style={{ fontStyle: 'italic', fontWeight: 400, color: '#fff' }}>Cricket Club.</span>
-          </h1>
           <div
             style={{
-              marginTop: 26,
               display: 'flex',
               alignItems: 'flex-end',
-              justifyContent: 'space-between',
+              justifyContent: 'flex-end',
               gap: 40,
               flexWrap: 'wrap',
             }}
           >
-            <div
-              style={{
-                maxWidth: 520,
-                color: 'rgba(255,255,255,.85)',
-                fontSize: 18,
-                lineHeight: 1.5,
-                fontWeight: 300,
-              }}
-            >
-              Eighteen Saturdays a year on a ground surrounded by orchards, oak and one particularly nosy
-              labrador. We are <b style={{ fontWeight: 600 }}>the Saints</b>, of the Kent County Village
-              League.
-            </div>
             <div style={{ display: 'flex', gap: 40 }}>
               <CStat label="Founded" value="1877" />
               <CStat label="Seasons" value={String(seasonsCount)} />
