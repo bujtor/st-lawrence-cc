@@ -151,8 +151,8 @@ export default async function CStatsPage({
     .map((f) => ({ ...f, total: f.catches + f.runOuts + f.stumpings }))
     .filter((f) => f.total > 0)
 
-  const recentSeasons = ALL_SEASONS.slice(-4)
-  const olderSeasons = ALL_SEASONS.slice(0, -4).slice().reverse()
+  const recentSeasons = ALL_SEASONS.slice(-5)
+  const olderSeasons = ALL_SEASONS.slice(0, -5).slice().reverse()
   const headingSubtitle = isAllTime
     ? 'All-time totals · 2008–2026'
     : `${season} Season`

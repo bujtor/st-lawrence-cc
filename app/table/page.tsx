@@ -19,8 +19,8 @@ import {
 export const dynamic = 'force-dynamic'
 
 const ALL_SEASONS = Array.from({ length: 2026 - 2008 + 1 }, (_, i) => 2008 + i)
-const RECENT_SEASONS = ALL_SEASONS.slice(-4)
-const OLDER_SEASONS = ALL_SEASONS.slice(0, -4).slice().reverse()
+const RECENT_SEASONS = ALL_SEASONS.slice(-5)
+const OLDER_SEASONS = ALL_SEASONS.slice(0, -5).slice().reverse()
 const OUR_CLUB_ID = '9754'
 
 type Standing = {
