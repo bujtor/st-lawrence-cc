@@ -24,9 +24,8 @@ export default function AboutPage() {
         <div className="bg-white rounded-xl p-6 border border-gray-100">
           <h2 className="text-lg font-bold text-gray-900 mb-3">Our Ground</h2>
           <p className="text-sm text-gray-600 leading-relaxed">
-            St Lawrence Cricket Club plays at Bitchet Green, a picturesque ground nestled in the village of
-            Ivy Hatch, near Sevenoaks in Kent. The ground sits in the heart of the Kent countryside,
-            surrounded by woodland and orchards.
+            St Lawrence Cricket Club plays at Bitchet Green, a picturesque ground near Sevenoaks in Kent.
+            The ground sits in the heart of the Kent countryside, surrounded by woodland and orchards.
           </p>
 
           {/* Ground photos */}
@@ -41,7 +40,7 @@ export default function AboutPage() {
 
           <div className="mt-4 bg-gray-50 rounded-lg p-4 border border-gray-100">
             <div className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-2">Address</div>
-            <p className="text-sm text-gray-700 font-medium">Bitchet Green, Ivy Hatch, Sevenoaks, Kent, TN15 0NB</p>
+            <p className="text-sm text-gray-700 font-medium">Bitchet Green, Sevenoaks, Kent, TN15 0NB</p>
             <a
               href="https://www.google.com/maps?q=51.2748,0.2305"
               target="_blank"

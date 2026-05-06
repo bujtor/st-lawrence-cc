@@ -161,7 +161,7 @@ export default async function OpengraphImage({
         {/* Bottom bar */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 16 }}>st-lawrence-cc.vercel.app</span>
-          <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 16 }}>Bitchet Green · Ivy Hatch · Kent · Est. 1877</span>
+          <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 16 }}>Bitchet Green · Kent · Est. 1877</span>
         </div>
       </div>
     ),

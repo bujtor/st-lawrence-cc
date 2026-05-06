@@ -384,7 +384,7 @@ export default async function CandidateBPage() {
         <div style={{ fontFamily: serif, fontStyle: 'italic', fontSize: 13, marginBottom: 6 }}>
           Printed, bound and occasionally proof-read at Bitchet Green.
         </div>
-        &copy; {new Date().getFullYear()} St Lawrence CC · Bitchet Green, Ivy Hatch, TN15 0NB · est. MDCCCLXXVII
+        &copy; {new Date().getFullYear()} St Lawrence CC · Bitchet Green, TN15 0NB · est. MDCCCLXXVII
       </div>
     </div>
   )

@@ -162,7 +162,7 @@ export default async function Home() {
                 className="invert w-auto max-h-24 md:max-h-32 mb-3 drop-shadow-2xl mx-auto md:mx-0"
                 priority
               />
-              <p className="text-white/70 text-sm font-light tracking-wide">Bitchet Green, Ivy Hatch, Sevenoaks, Kent</p>
+              <p className="text-white/70 text-sm font-light tracking-wide">Bitchet Green, Sevenoaks, Kent</p>
               <p className="text-white/40 text-xs mt-0.5">Kent County Village League &middot; Est. 1877</p>
             </div>
 
@@ -305,9 +305,9 @@ export default async function Home() {
         </div>
       </div>
 
-      {/* Sponsors - just below hero */}
+      {/* Sponsors - just below hero (extra top padding on mobile so it doesn't crowd the hero widget) */}
       <div className="bg-white border-b border-gray-100">
-        <div className="max-w-5xl mx-auto px-4 py-5">
+        <div className="max-w-5xl mx-auto px-4 pt-9 pb-5 md:py-5">
           <div className="flex flex-wrap justify-center items-center gap-6 md:gap-10">
             {sponsors.map((s) => (
               <div key={s.name} className="grayscale hover:grayscale-0 opacity-50 hover:opacity-100 transition-all">
@@ -409,7 +409,7 @@ export default async function Home() {
             <div className="flex items-center gap-3">
               <Image src="/images/badge.png" alt="St Lawrence CC" width={80} height={28} className="h-5 w-auto opacity-40" />
               <div className="text-xs text-gray-400">
-                St Lawrence Cricket Club &middot; Bitchet Green, Ivy Hatch, TN15 0NB
+                St Lawrence Cricket Club &middot; Bitchet Green, TN15 0NB
               </div>
             </div>
             <div className="flex items-center gap-4 text-xs">

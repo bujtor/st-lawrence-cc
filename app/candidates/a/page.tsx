@@ -286,7 +286,7 @@ export default async function CandidateAPage() {
         <div style={{ position: 'relative', maxWidth: 1180, margin: '0 auto', padding: '80px 32px 40px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', zIndex: 2 }}>
           <div>
             <div style={{ fontFamily: serif, fontSize: 13, letterSpacing: 4, color: 'rgba(255,255,255,.75)', textTransform: 'uppercase' }}>
-              Bitchet Green · Ivy Hatch · Kent
+              Bitchet Green · Kent
             </div>
             <h1 style={{ fontFamily: serif, fontSize: 92, lineHeight: 0.92, fontWeight: 500, color: '#fff', margin: '18px 0 0', letterSpacing: -1.5 }}>
               St Lawrence<br />
@@ -467,7 +467,7 @@ export default async function CandidateAPage() {
               <div style={{ fontFamily: serif, fontWeight: 600, fontSize: 16 }}>St Lawrence Cricket Club</div>
             </div>
             <div style={{ fontSize: 13, color: '#888', marginTop: 8, lineHeight: 1.5 }}>
-              Bitchet Green, Ivy Hatch, Sevenoaks, Kent TN15 0NB<br />
+              Bitchet Green, Sevenoaks, Kent TN15 0NB<br />
               Founded 1877 · Kent County Village League
             </div>
           </div>

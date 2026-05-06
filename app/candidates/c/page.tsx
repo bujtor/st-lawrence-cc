@@ -456,7 +456,7 @@ export default async function CandidateCPage() {
               EST. MDCCCLXXVII · BITCHET GREEN
             </div>
             <div style={{ fontSize: 13, marginTop: 20, lineHeight: 1.6, maxWidth: 320 }}>
-              Bitchet Green, Ivy Hatch, Sevenoaks, Kent TN15 0NB.<br />
+              Bitchet Green, Sevenoaks, Kent TN15 0NB.<br />
               A Kent County Village League side.
             </div>
           </div>
