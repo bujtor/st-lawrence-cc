@@ -140,8 +140,9 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero with real ground photo */}
-      <div className="relative h-[420px] md:h-[480px] overflow-hidden">
+      {/* Hero with real ground photo. Mobile is taller — the match-day widget
+          stacks 2-3 cards beneath the badge, so 420px clipped the top. */}
+      <div className="relative h-[600px] md:h-[480px] overflow-hidden">
         <Image
           src={heroImage}
           alt="Cricket at Bitchet Green"
