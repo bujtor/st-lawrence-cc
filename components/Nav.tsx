@@ -11,6 +11,7 @@ const links = [
   { href: '/table', label: 'Table' },
   { href: '/stats', label: 'Stats' },
   { href: '/about', label: 'About' },
+  { href: '/contact', label: 'Contact' },
 ]
 
 export default function Nav() {

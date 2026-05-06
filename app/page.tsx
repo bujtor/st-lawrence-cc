@@ -353,12 +353,12 @@ export default async function Home() {
             </p>
           </div>
           <div className="flex flex-col items-center md:items-end gap-2 flex-shrink-0">
-            <a
-              href="mailto:pmsmith31@icloud.com"
+            <Link
+              href="/contact"
               className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-6 py-3 rounded-lg no-underline transition-colors shadow-lg"
             >
               Get in Touch
-            </a>
+            </Link>
             <a href="tel:07783596582" className="text-white/50 hover:text-white/80 text-xs no-underline transition-colors">
               or call 07783 596582
             </a>
