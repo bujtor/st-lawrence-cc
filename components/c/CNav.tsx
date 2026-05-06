@@ -57,14 +57,15 @@ export default function CNav() {
             style={{ height: 32, width: 'auto', filter: 'brightness(0) invert(1)' }}
           />
           <span
+            className="hidden md:inline-block"
             style={{
               height: 16,
               width: 1,
               background: 'rgba(255,255,255,.3)',
-              display: 'inline-block',
             }}
           />
           <span
+            className="hidden md:inline"
             style={{
               fontFamily: mono,
               fontSize: 10,
@@ -76,10 +77,9 @@ export default function CNav() {
           </span>
         </Link>
 
-        {/* Desktop links */}
+        {/* Desktop links — no inline `display`; Tailwind toggles via hidden / md:flex */}
         <div
           style={{
-            display: 'flex',
             gap: 28,
             alignItems: 'center',
             fontFamily: 'inherit',
@@ -152,17 +152,15 @@ export default function CNav() {
         </button>
       </div>
 
-      {/* Mobile drawer */}
+      {/* Mobile drawer — Tailwind drives display so md:hidden actually wins */}
       {open && (
         <div
           id="c-nav-mobile-drawer"
-          className="md:hidden"
+          className="md:hidden flex flex-col"
           style={{
             background: C_GREEN,
             borderTop: '1px solid rgba(255,255,255,.1)',
             padding: '8px 24px 16px',
-            display: 'flex',
-            flexDirection: 'column',
             gap: 4,
           }}
         >
