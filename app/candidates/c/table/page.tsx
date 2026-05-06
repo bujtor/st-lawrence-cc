@@ -227,17 +227,19 @@ export default async function CTablePage({
 
                     const gamePts = t.points - t.bonus_batting - t.bonus_bowling + t.penalty_points
 
-                    // Row background + left border
+                    // Row background + left border. SLCC uses a clearly *green*
+                    // tint so it doesn't read as relegation (which is the only
+                    // other red-tinted row treatment).
                     let rowBg = 'transparent'
                     let leftBorderColor: string | null = null
                     if (isOurs) {
-                      rowBg = 'rgba(193,32,39,.06)'
+                      rowBg = 'rgba(13,59,39,.10)'
                       leftBorderColor = C_GREEN
                     } else if (isPromotion) {
                       rowBg = 'rgba(13,59,39,.05)'
                       leftBorderColor = C_GREEN_LT
                     } else if (isRelegation) {
-                      rowBg = 'rgba(193,32,39,.05)'
+                      rowBg = 'rgba(193,32,39,.06)'
                       leftBorderColor = C_RED
                     }
 
@@ -248,7 +250,6 @@ export default async function CTablePage({
                       fontSize: 13,
                       color: '#666',
                       borderBottom: `1px dashed ${C_RULE}`,
-                      borderLeft: leftBorderColor && i === 0 ? `3px solid ${leftBorderColor}` : undefined,
                     }
 
                     const posColor = isPromotion ? C_GREEN : isRelegation ? C_RED : '#bbb'
@@ -325,7 +326,7 @@ export default async function CTablePage({
                 ▼ Bottom 2 — Relegation
               </span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: mono, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: C_GREEN }}>
-                <span style={{ display: 'inline-block', width: 12, height: 12, background: 'rgba(193,32,39,.06)', borderLeft: `3px solid ${C_GREEN}` }} />
+                <span style={{ display: 'inline-block', width: 12, height: 12, background: 'rgba(13,59,39,.10)', borderLeft: `3px solid ${C_GREEN}` }} />
                 St Lawrence CC
               </span>
             </div>
