@@ -359,9 +359,6 @@ export default async function Home() {
             >
               Get in Touch
             </Link>
-            <a href="tel:07783596582" className="text-white/50 hover:text-white/80 text-xs no-underline transition-colors">
-              or call 07783 596582
-            </a>
           </div>
         </div>
       </div>

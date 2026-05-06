@@ -331,14 +331,14 @@ export default function AboutPage() {
                   lineHeight: 1.1,
                 }}
               >
-                Paul Smith<br />
+                Gary Evans &amp; Paul Martin<br />
                 <span style={{ fontStyle: 'normal', fontWeight: 400, fontSize: 18, opacity: 0.7 }}>
-                  Captain
+                  Captains
                 </span>
               </div>
               <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <a
-                  href="mailto:pmsmith31@icloud.com"
+                <Link
+                  href="/contact"
                   style={{
                     display: 'block',
                     padding: '12px 18px',
@@ -353,27 +353,8 @@ export default function AboutPage() {
                     textAlign: 'center',
                   }}
                 >
-                  Email the Captain
-                </a>
-                <a
-                  href="tel:07783596582"
-                  style={{
-                    display: 'block',
-                    padding: '12px 18px',
-                    background: 'transparent',
-                    color: 'rgba(255,255,255,.8)',
-                    border: '1px solid rgba(255,255,255,.25)',
-                    textDecoration: 'none',
-                    fontFamily: mono,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    letterSpacing: 2,
-                    textTransform: 'uppercase',
-                    textAlign: 'center',
-                  }}
-                >
-                  07783 596 582
-                </a>
+                  Send a message
+                </Link>
               </div>
             </div>
 
@@ -531,7 +512,7 @@ export default function AboutPage() {
             }}
           >
             Experienced cricketer, rusty club player, or someone whose last innings was Under-13s Colts
-            &mdash; you are welcome here. Get in touch with our captain, Paul Smith.
+            &mdash; you are welcome here. Drop the captains a line.
           </p>
           <div
             style={{
@@ -542,8 +523,8 @@ export default function AboutPage() {
               flexWrap: 'wrap',
             }}
           >
-            <a
-              href="mailto:pmsmith31@icloud.com"
+            <Link
+              href="/contact"
               style={{
                 padding: '15px 28px',
                 background: C_RED,
@@ -556,25 +537,8 @@ export default function AboutPage() {
                 textTransform: 'uppercase',
               }}
             >
-              Email the Captain
-            </a>
-            <a
-              href="tel:07783596582"
-              style={{
-                padding: '15px 28px',
-                background: 'transparent',
-                color: '#fff',
-                border: '1px solid rgba(255,255,255,.35)',
-                textDecoration: 'none',
-                fontFamily: mono,
-                fontSize: 12,
-                fontWeight: 700,
-                letterSpacing: 2,
-                textTransform: 'uppercase',
-              }}
-            >
-              07783 596 582
-            </a>
+              Get in touch
+            </Link>
           </div>
         </div>
       </div>

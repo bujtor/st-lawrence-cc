@@ -13,19 +13,14 @@ export default function ContactPage() {
         <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900">Get in touch</h1>
         <p className="text-sm text-gray-500 mt-2 max-w-prose">
           Want to play, sponsor a fixture, or ask about the club? Drop us a note and we&rsquo;ll
-          come back to you. Captain Paul Smith picks these up directly.
+          come back to you — messages go straight to the captains and committee.
         </p>
       </div>
 
       <ContactForm />
 
-      <div className="mt-10 pt-6 border-t border-gray-100 text-sm text-gray-500 space-y-1">
-        <div>
-          Or call <a href="tel:07783596582" className="text-emerald-700 font-semibold no-underline hover:text-emerald-800">07783 596 582</a>
-        </div>
-        <div>
-          Find us at Bitchet Green, Sevenoaks, Kent, TN15 0NB
-        </div>
+      <div className="mt-10 pt-6 border-t border-gray-100 text-sm text-gray-500">
+        Find us at Bitchet Green, Sevenoaks, Kent, TN15 0NB
       </div>
     </div>
   )

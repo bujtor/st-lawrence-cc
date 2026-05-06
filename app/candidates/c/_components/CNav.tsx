@@ -105,8 +105,8 @@ export default function CNav() {
               </Link>
             )
           })}
-          <a
-            href="mailto:pmsmith31@icloud.com"
+          <Link
+            href="/contact"
             style={{
               padding: '8px 14px',
               background: C_RED,
@@ -121,7 +121,7 @@ export default function CNav() {
             }}
           >
             Play for us
-          </a>
+          </Link>
         </div>
 
         {/* Mobile burger */}
@@ -181,8 +181,8 @@ export default function CNav() {
               </Link>
             )
           })}
-          <a
-            href="mailto:pmsmith31@icloud.com"
+          <Link
+            href="/contact"
             onClick={() => setOpen(false)}
             style={{
               marginTop: 12,
@@ -200,7 +200,7 @@ export default function CNav() {
             }}
           >
             Play for us
-          </a>
+          </Link>
         </div>
       )}
     </nav>

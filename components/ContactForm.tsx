@@ -57,7 +57,7 @@ export default function ContactForm() {
         <div className="text-2xl mb-2">✓</div>
         <h3 className="text-lg font-bold text-emerald-800">Thanks — message sent.</h3>
         <p className="text-sm text-emerald-700 mt-2">
-          We&rsquo;ll be in touch within a couple of days. If it&rsquo;s urgent, give Paul a ring on 07783 596 582.
+          We&rsquo;ll be in touch within a couple of days.
         </p>
         <button
           type="button"

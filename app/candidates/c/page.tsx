@@ -969,8 +969,8 @@ export default async function CandidateCHome() {
             you are welcome here. Bring whites if you&rsquo;ve got &rsquo;em, borrow ours if you haven&rsquo;t.
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 14, marginTop: 36, flexWrap: 'wrap' }}>
-            <a
-              href="mailto:pmsmith31@icloud.com"
+            <Link
+              href="/contact"
               style={{
                 padding: '16px 28px',
                 background: C_RED,
@@ -983,25 +983,8 @@ export default async function CandidateCHome() {
                 textTransform: 'uppercase',
               }}
             >
-              Email the captain
-            </a>
-            <a
-              href="tel:07783596582"
-              style={{
-                padding: '16px 28px',
-                background: 'transparent',
-                color: '#fff',
-                border: '1px solid rgba(255,255,255,.4)',
-                textDecoration: 'none',
-                fontFamily: mono,
-                fontSize: 13,
-                fontWeight: 700,
-                letterSpacing: 2,
-                textTransform: 'uppercase',
-              }}
-            >
-              07783 596 582
-            </a>
+              Get in touch
+            </Link>
           </div>
         </div>
       </div>
