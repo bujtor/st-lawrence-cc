@@ -28,15 +28,17 @@ import {
 
 export const dynamic = 'force-dynamic'
 
+// Dalton Joinery is the main sponsor — leftmost in the strip and rendered
+// at a larger size than the supporting sponsors.
 const sponsors = [
-  { name: 'Barber Jack', file: 'barber-jack.png' as string | null },
-  { name: 'JML', file: 'jml.jpeg' },
-  { name: 'Regal Point', file: 'regal-point.jpg' },
-  { name: 'Gulliver', file: 'gulliver.png' },
-  { name: 'Savills', file: 'savills.png' },
-  // Logos pending — paid sponsors, name-only chip until artwork arrives
-  { name: 'Harding Motors', file: null },
-  { name: 'Dalton Joinery', file: 'dalton-joinery.png' },
+  { name: 'Dalton Joinery', file: 'dalton-joinery.png' as string | null, main: true },
+  { name: 'Barber Jack', file: 'barber-jack.png', main: false },
+  { name: 'JML', file: 'jml.jpeg', main: false },
+  { name: 'Regal Point', file: 'regal-point.jpg', main: false },
+  { name: 'Gulliver', file: 'gulliver.png', main: false },
+  { name: 'Savills', file: 'savills.png', main: false },
+  // Logo pending — paid sponsor, name-only chip until artwork arrives
+  { name: 'Harding Motors', file: null, main: false },
 ]
 
 function fmtDayNum(d: string) {
@@ -280,10 +282,10 @@ export default async function CandidateCHome() {
                   key={s.name}
                   src={`/images/sponsors/${s.file}`}
                   alt={s.name}
-                  width={120}
-                  height={36}
+                  width={s.main ? 200 : 120}
+                  height={s.main ? 80 : 36}
                   style={{
-                    height: 32,
+                    height: s.main ? 72 : 32,
                     width: 'auto',
                     objectFit: 'contain',
                   }}
