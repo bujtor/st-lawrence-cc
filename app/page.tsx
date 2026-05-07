@@ -263,27 +263,13 @@ export default async function CandidateCHome() {
           <div
             style={{
               display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
+              alignItems: 'center',
               justifyContent: 'center',
               borderRight: `1px solid ${C_RULE}`,
               paddingRight: 40,
               minWidth: 140,
             }}
           >
-            <div
-              style={{
-                fontFamily: mono,
-                fontSize: 9,
-                letterSpacing: 2.5,
-                textTransform: 'uppercase',
-                color: C_RED,
-                fontWeight: 700,
-                marginBottom: 10,
-              }}
-            >
-              — Main Sponsor
-            </div>
             {mainSponsor.file ? (
               <Image
                 src={`/images/sponsors/${mainSponsor.file}`}
@@ -312,35 +298,15 @@ export default async function CandidateCHome() {
 
           {/* Supporting sponsors — 3×2 grid */}
           <div
+            className="supporting-grid"
             style={{
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              gap: 12,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gridAutoRows: '1fr',
+              gap: '14px 32px',
+              alignItems: 'center',
             }}
           >
-            <div
-              style={{
-                fontFamily: mono,
-                fontSize: 9,
-                letterSpacing: 2.5,
-                textTransform: 'uppercase',
-                color: '#888',
-                fontWeight: 600,
-              }}
-            >
-              — Also Supporting
-            </div>
-            <div
-              className="supporting-grid"
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                gridAutoRows: '1fr',
-                gap: '14px 32px',
-                alignItems: 'center',
-              }}
-            >
               {sponsors.map((s) => (
                 <div
                   key={s.name}
@@ -375,7 +341,6 @@ export default async function CandidateCHome() {
                   )}
                 </div>
               ))}
-            </div>
           </div>
         </div>
 
