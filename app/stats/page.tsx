@@ -345,10 +345,20 @@ export default async function CStatsPage({
             </section>
 
             {/* Leaderboards — three column grid */}
-            {/* `minmax(0, 1fr)` (not bare 1fr) forces each column to its
-                share even if the table inside is wider — otherwise the grid
-                overflows the container and the trio drifts off-centre. */}
-            <div className="leaderboard-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 32, marginBottom: 56 }}>
+            {/* Auto-fit grid: as many ≥540px columns as fit. Each leaderboard
+                table has 9-11 columns and needs ≥540px to render names without
+                wrapping and stat columns without clipping. Result: typical
+                desktop gets a 2-up row (Batting + Bowling) with Fielding wrapping
+                to a second row at full width; phones stack 1-up. */}
+            <div
+              className="leaderboard-grid"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(540px, 1fr))',
+                gap: 32,
+                marginBottom: 56,
+              }}
+            >
               {/* Batting */}
               {batters.length > 0 && (
                 <div>
@@ -395,11 +405,6 @@ export default async function CStatsPage({
         )}
       </CContainer>
 
-      <style>{`
-        @media (max-width: 900px) {
-          .leaderboard-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
     </div>
   )
 }
