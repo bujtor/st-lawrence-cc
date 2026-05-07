@@ -28,15 +28,19 @@ import {
 
 export const dynamic = 'force-dynamic'
 
+// Main sponsor — gets the prominent leftmost slot at ~2x the height
+// of the others.
+const mainSponsor = { name: 'Dalton Joinery', file: 'dalton-joinery.png' as string | null }
+
+// Supporting sponsors — split across two rows alongside the main sponsor.
 const sponsors = [
   { name: 'Barber Jack', file: 'barber-jack.png' as string | null },
   { name: 'JML', file: 'jml.jpeg' },
   { name: 'Regal Point', file: 'regal-point.jpg' },
   { name: 'Gulliver', file: 'gulliver.png' },
   { name: 'Savills', file: 'savills.png' },
-  // Logos pending — paid sponsors, name-only chip until artwork arrives
+  // Logo pending — paid sponsor, name-only chip until artwork arrives
   { name: 'Harding Motors', file: null },
-  { name: 'Dalton Joinery', file: 'dalton-joinery.png' },
 ]
 
 function fmtDayNum(d: string) {
@@ -240,72 +244,150 @@ export default async function CandidateCHome() {
         </div>
       </div>
 
-      {/* Sponsor strip */}
+      {/* Sponsor strip — main sponsor (Dalton) gets a tall leftmost panel,
+          the six supporting sponsors arrange in a 3×2 grid on the right. */}
       <div style={{ background: '#fff', borderBottom: `1px solid ${C_RULE}` }}>
         <div
+          className="sponsor-block"
           style={{
             maxWidth: 1240,
             margin: '0 auto',
-            padding: '22px 32px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 24,
-            flexWrap: 'wrap',
+            padding: '24px 32px',
+            display: 'grid',
+            gridTemplateColumns: 'auto 1fr',
+            alignItems: 'stretch',
+            gap: 40,
           }}
         >
-          <div
-            style={{
-              fontFamily: mono,
-              fontSize: 10,
-              letterSpacing: 3,
-              textTransform: 'uppercase',
-              color: '#888',
-              fontWeight: 600,
-            }}
-          >
-            Backed by our sponsors ———
-          </div>
+          {/* Main sponsor — Dalton */}
           <div
             style={{
               display: 'flex',
-              alignItems: 'center',
-              gap: 36,
-              flexWrap: 'wrap',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              justifyContent: 'center',
+              borderRight: `1px solid ${C_RULE}`,
+              paddingRight: 40,
+              minWidth: 140,
             }}
           >
-            {sponsors.map((s) =>
-              s.file ? (
-                <Image
-                  key={s.name}
-                  src={`/images/sponsors/${s.file}`}
-                  alt={s.name}
-                  width={120}
-                  height={36}
-                  style={{
-                    height: 32,
-                    width: 'auto',
-                    objectFit: 'contain',
-                  }}
-                />
-              ) : (
-                <span
-                  key={s.name}
-                  style={{
-                    fontFamily: mono,
-                    fontSize: 11,
-                    letterSpacing: 1.5,
-                    textTransform: 'uppercase',
-                    color: '#666',
-                    fontWeight: 600,
-                  }}
-                >
-                  {s.name}
-                </span>
-              )
+            <div
+              style={{
+                fontFamily: mono,
+                fontSize: 9,
+                letterSpacing: 2.5,
+                textTransform: 'uppercase',
+                color: C_RED,
+                fontWeight: 700,
+                marginBottom: 10,
+              }}
+            >
+              — Main Sponsor
+            </div>
+            {mainSponsor.file ? (
+              <Image
+                src={`/images/sponsors/${mainSponsor.file}`}
+                alt={mainSponsor.name}
+                width={180}
+                height={120}
+                style={{
+                  height: 96,
+                  width: 'auto',
+                  objectFit: 'contain',
+                }}
+              />
+            ) : (
+              <span
+                style={{
+                  fontFamily: display,
+                  fontSize: 22,
+                  fontStyle: 'italic',
+                  color: C_INK,
+                }}
+              >
+                {mainSponsor.name}
+              </span>
             )}
           </div>
+
+          {/* Supporting sponsors — 3×2 grid */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              gap: 12,
+            }}
+          >
+            <div
+              style={{
+                fontFamily: mono,
+                fontSize: 9,
+                letterSpacing: 2.5,
+                textTransform: 'uppercase',
+                color: '#888',
+                fontWeight: 600,
+              }}
+            >
+              — Also Supporting
+            </div>
+            <div
+              className="supporting-grid"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                gridAutoRows: '1fr',
+                gap: '14px 32px',
+                alignItems: 'center',
+              }}
+            >
+              {sponsors.map((s) => (
+                <div
+                  key={s.name}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-start',
+                    minHeight: 36,
+                  }}
+                >
+                  {s.file ? (
+                    <Image
+                      src={`/images/sponsors/${s.file}`}
+                      alt={s.name}
+                      width={120}
+                      height={36}
+                      style={{ height: 32, width: 'auto', objectFit: 'contain' }}
+                    />
+                  ) : (
+                    <span
+                      style={{
+                        fontFamily: mono,
+                        fontSize: 11,
+                        letterSpacing: 1.5,
+                        textTransform: 'uppercase',
+                        color: '#666',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {s.name}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
+
+        {/* Mobile collapse: stack the two blocks vertically and drop the
+            divider rule on the main-sponsor column. */}
+        <style>{`
+          @media (max-width: 720px) {
+            .sponsor-block { grid-template-columns: 1fr !important; gap: 20px !important; }
+            .sponsor-block > div:first-child { border-right: none !important; padding-right: 0 !important; border-bottom: 1px solid ${C_RULE}; padding-bottom: 16px; align-items: center !important; }
+            .supporting-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          }
+        `}</style>
       </div>
 
       {/* Scoreboard row */}
