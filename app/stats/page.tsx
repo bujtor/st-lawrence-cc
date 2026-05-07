@@ -269,7 +269,7 @@ export default async function CStatsPage({
 
   return (
     <div style={{ fontFamily: sansTight, color: C_INK }}>
-      <CContainer>
+      <CContainer maxWidth={1600}>
         <CPageHeader
           kicker="Statistics"
           title={isAllTime ? 'All-time records.' : `${season} season.`}
