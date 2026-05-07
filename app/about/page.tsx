@@ -274,9 +274,10 @@ export default function AboutPage() {
                 </div>
               </div>
               <p style={{ fontSize: 15, lineHeight: 1.7, color: '#444', margin: 0 }}>
-                St Lawrence is about the friendships, the teas, and the post-match conversations that make
-                village cricket special. A game that lasts six hours. A ground where the boundary sometimes
-                involves negotiating with a labrador. Cricket played as it was meant to be.
+                St Lawrence is as much about the friendships and the teas as the cricket itself. A game
+                that lasts six hours, and an evening that often runs longer — pints in the pavilion,
+                wickets relived, dismissals re-litigated. Village cricket as it was meant to be played,
+                and remembered.
               </p>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 24 }}>
