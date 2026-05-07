@@ -345,7 +345,10 @@ export default async function CStatsPage({
             </section>
 
             {/* Leaderboards — three column grid */}
-            <div className="leaderboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 32, marginBottom: 56 }}>
+            {/* `minmax(0, 1fr)` (not bare 1fr) forces each column to its
+                share even if the table inside is wider — otherwise the grid
+                overflows the container and the trio drifts off-centre. */}
+            <div className="leaderboard-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 32, marginBottom: 56 }}>
               {/* Batting */}
               {batters.length > 0 && (
                 <div>
