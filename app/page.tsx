@@ -383,8 +383,10 @@ export default async function CandidateCHome() {
           className="grid-stack-on-mobile"
         >
           {live ? (
-            <Link
-              href={`/fixtures/${live.fixtureId}`}
+            <a
+              href={live.pcLink}
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
                 background: C_GREEN,
                 color: '#fff',
@@ -394,6 +396,7 @@ export default async function CandidateCHome() {
                 textDecoration: 'none',
                 border: `2px solid ${C_RED}`,
                 boxShadow: '0 0 0 4px rgba(193,32,39,.12)',
+                display: 'block',
               }}
             >
               {/* LIVE pulse + kicker */}
@@ -530,7 +533,7 @@ export default async function CandidateCHome() {
                   50%      { opacity: 0.45; transform: scale(0.85); }
                 }
               `}</style>
-            </Link>
+            </a>
           ) : next ? (
             <Link
               href={`/fixtures/${next.id}`}
