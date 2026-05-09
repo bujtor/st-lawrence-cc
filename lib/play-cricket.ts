@@ -232,3 +232,29 @@ export async function fetchMatchDetail(matchId: number): Promise<PCMatchDetail |
   if (!json.match_details || json.match_details.length === 0) return null
   return json.match_details[0]
 }
+
+/**
+ * Live variant — polls Play-Cricket but lets Next.js cache the response
+ * for `revalidateSeconds` so a busy page (e.g. the home page during a
+ * live match) doesn't hammer Play-Cricket. Defaults to 30s.
+ *
+ * Returns null on any failure rather than throwing — live scores are a
+ * "nice to have" overlay; if PC is flaky we want the rest of the page
+ * to keep rendering.
+ */
+export async function fetchLiveMatchDetail(
+  matchId: number,
+  revalidateSeconds = 30,
+): Promise<PCMatchDetail | null> {
+  const token = process.env.PLAY_CRICKET_API_TOKEN
+  if (!token) return null
+  const url = `${BASE}/match_detail.json?match_id=${matchId}&api_token=${token}`
+  try {
+    const res = await fetch(url, { next: { revalidate: revalidateSeconds } })
+    if (!res.ok) return null
+    const json = (await res.json()) as { match_details?: PCMatchDetail[] }
+    return json.match_details?.[0] ?? null
+  } catch {
+    return null
+  }
+}

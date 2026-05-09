@@ -4,7 +4,8 @@ import { supabase } from '@/lib/supabase'
 import type { Fixture } from '@/lib/supabase'
 import { aggregateBatting, aggregateBowling, type BatRow, type BowlRow } from '@/lib/aggregations'
 import { fetchRecentForm, formLetter } from '@/lib/recent-form'
-import { todayLondon } from '@/lib/london-time'
+import { todayLondon, londonWallTimeToUtc } from '@/lib/london-time'
+import { fetchLiveMatchDetail, parsePCOvers, formatOvers, toIntOrNull } from '@/lib/play-cricket'
 import {
   CKicker,
   CEditorialHeader,
@@ -101,6 +102,71 @@ export default async function CandidateCHome() {
     ? todayFixture
     : (lastResults?.[0] ?? null)
   const upcoming: Fixture[] = upcomingFixtures ?? []
+
+  // ── Live match detection + score fetch ─────────────────────────────────
+  // A fixture is "live" if it's today, has a start time that's already
+  // passed (London local), no recorded result yet, and we have a Play-Cricket
+  // match id to fetch the running score from.
+  type LiveScore = {
+    fixtureId: number
+    pcMatchId: number
+    opponent: string
+    venue: string
+    homeAway: string
+    innings: { battingTeam: string; runs: number | null; wickets: number | null; oversText: string }[]
+    statusLine: string
+    pcLink: string
+  }
+  let live: LiveScore | null = null
+
+  const liveCandidate = todayFixture && !todayFixture.result_text ? todayFixture : null
+  if (
+    liveCandidate &&
+    liveCandidate.play_cricket_match_id &&
+    liveCandidate.start_time &&
+    liveCandidate.match_date === today
+  ) {
+    const startUtc = londonWallTimeToUtc(liveCandidate.match_date, liveCandidate.start_time)
+    const endUtc = londonWallTimeToUtc(liveCandidate.match_date, '23:30:00')
+    const nowMs = Date.now()
+    if (startUtc != null && endUtc != null && nowMs >= startUtc && nowMs <= endUtc) {
+      const md = await fetchLiveMatchDetail(liveCandidate.play_cricket_match_id, 30)
+      if (md) {
+        const innings = (md.innings ?? []).map((inn) => {
+          const runs = toIntOrNull(inn.runs)
+          const wickets = toIntOrNull(inn.wickets)
+          const overs = parsePCOvers(inn.overs)
+          return {
+            battingTeam: inn.team_batting_name ?? '?',
+            runs,
+            wickets,
+            oversText: overs != null ? formatOvers(overs) : (inn.overs ?? '0.0'),
+          }
+        })
+
+        // Status line — "1st innings · {team} batting" or final-ish summary
+        let statusLine: string
+        if (innings.length === 0) {
+          statusLine = 'Match underway — first innings starting'
+        } else if (innings.length === 1) {
+          statusLine = `1st innings · ${innings[0].battingTeam} batting`
+        } else {
+          statusLine = `${innings[1].battingTeam} chasing`
+        }
+
+        live = {
+          fixtureId: liveCandidate.id,
+          pcMatchId: liveCandidate.play_cricket_match_id,
+          opponent: liveCandidate.opponent,
+          venue: liveCandidate.venue,
+          homeAway: liveCandidate.home_away,
+          innings,
+          statusLine,
+          pcLink: `https://stlawrence.play-cricket.com/website/results/${liveCandidate.play_cricket_match_id}`,
+        }
+      }
+    }
+  }
 
   const recent = await fetchRecentForm(5)
   const recentLetters = recent.map((r) => formLetter(r.result_text))
@@ -316,7 +382,156 @@ export default async function CandidateCHome() {
           style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 2fr)', gap: 32 }}
           className="grid-stack-on-mobile"
         >
-          {next ? (
+          {live ? (
+            <Link
+              href={`/fixtures/${live.fixtureId}`}
+              style={{
+                background: C_GREEN,
+                color: '#fff',
+                padding: '32px 40px',
+                position: 'relative',
+                overflow: 'hidden',
+                textDecoration: 'none',
+                border: `2px solid ${C_RED}`,
+                boxShadow: '0 0 0 4px rgba(193,32,39,.12)',
+              }}
+            >
+              {/* LIVE pulse + kicker */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <span
+                  className="live-pulse"
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: 999,
+                    background: C_RED,
+                    display: 'inline-block',
+                  }}
+                  aria-hidden="true"
+                />
+                <span
+                  style={{
+                    fontFamily: mono,
+                    fontSize: 11,
+                    letterSpacing: 3,
+                    textTransform: 'uppercase',
+                    color: C_RED,
+                    fontWeight: 700,
+                  }}
+                >
+                  Live now · Match in progress
+                </span>
+              </div>
+              <div
+                style={{
+                  fontFamily: display,
+                  fontSize: 'clamp(36px, 5.6vw, 68px)',
+                  lineHeight: 0.95,
+                  letterSpacing: -2,
+                  fontWeight: 500,
+                  color: '#fff',
+                }}
+              >
+                <span style={{ fontStyle: 'italic', fontWeight: 400, opacity: 0.6 }}>v.</span>{' '}
+                {live.opponent}
+              </div>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: 'rgba(255,255,255,.6)',
+                  marginTop: 6,
+                  fontFamily: mono,
+                  letterSpacing: 1,
+                  textTransform: 'uppercase',
+                }}
+              >
+                {live.statusLine} · {live.homeAway === 'H' ? 'Home' : 'Away'} ·{' '}
+                {live.homeAway === 'H' ? 'Bitchet Green' : live.venue}
+              </div>
+
+              {/* Innings totals — one row per innings */}
+              <div
+                style={{
+                  marginTop: 22,
+                  paddingTop: 18,
+                  borderTop: '1px solid rgba(255,255,255,.15)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
+                {live.innings.length === 0 ? (
+                  <div style={{ fontSize: 14, color: 'rgba(255,255,255,.7)' }}>
+                    Innings hasn&rsquo;t started yet — check back in a few overs.
+                  </div>
+                ) : (
+                  live.innings.map((inn, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'baseline',
+                        justifyContent: 'space-between',
+                        gap: 16,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: display,
+                          fontSize: 18,
+                          fontStyle: 'italic',
+                          fontWeight: 500,
+                          color: 'rgba(255,255,255,.85)',
+                        }}
+                      >
+                        {inn.battingTeam}
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: mono,
+                          fontSize: 22,
+                          fontWeight: 700,
+                          color: '#fff',
+                          letterSpacing: 0.5,
+                        }}
+                      >
+                        {inn.runs ?? '—'}
+                        {inn.runs != null && inn.wickets != null && (inn.wickets as number) < 10 ? `-${inn.wickets}` : ''}
+                        <span style={{ fontWeight: 400, color: 'rgba(255,255,255,.55)', marginLeft: 8, fontSize: 14 }}>
+                          ({inn.oversText} ov)
+                        </span>
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div
+                style={{
+                  marginTop: 18,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontFamily: mono,
+                  fontSize: 11,
+                  letterSpacing: 2,
+                  textTransform: 'uppercase',
+                  color: '#fff',
+                  fontWeight: 700,
+                }}
+              >
+                Watch live on Play-Cricket →
+              </div>
+              <style>{`
+                .live-pulse { animation: livePulse 1.4s ease-in-out infinite; }
+                @keyframes livePulse {
+                  0%, 100% { opacity: 1; transform: scale(1); }
+                  50%      { opacity: 0.45; transform: scale(0.85); }
+                }
+              `}</style>
+            </Link>
+          ) : next ? (
             <Link
               href={`/fixtures/${next.id}`}
               style={{
