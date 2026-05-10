@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import AvailabilityGrid from '@/components/AvailabilityGrid'
 import PinGate from '@/components/PinGate'
 import SetPinCookie from '@/components/SetPinCookie'
+import SyncNowButton from '@/components/SyncNowButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -64,6 +65,9 @@ export default async function AvailabilityPage({
   return (
     <>
       {needsCookie && <SetPinCookie pin={correctPin} />}
+      <div style={{ maxWidth: 1240, margin: '0 auto', padding: '24px 24px 0' }}>
+        <SyncNowButton />
+      </div>
       <AvailabilityGrid
         allPlayers={playersRes.data || []}
         initialFixtures={fixturesRes.data || []}
