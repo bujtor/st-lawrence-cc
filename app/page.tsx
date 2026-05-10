@@ -833,7 +833,8 @@ export default async function CandidateCHome() {
                 <div style={{ textAlign: 'right' }}>W</div>
                 <div style={{ textAlign: 'right' }}>Pts</div>
               </div>
-              {(standings ?? []).slice(0, 8).map((r, i) => {
+              {(standings ?? []).map((r, i) => {
+                const total = (standings ?? []).length
                 const teamLabel = (r.team_name ?? '').trim()
                 const clubLabel = (r.club_name ?? '').trim()
                 const fullName =
@@ -844,6 +845,25 @@ export default async function CandidateCHome() {
                     : `${clubLabel} - ${teamLabel}`
                 const isOurs = r.club_id === '9754'
                 const pos = r.position ?? i + 1
+                const isPromotion = pos <= 2
+                const isRelegation = pos >= total - 1
+
+                // SLCC takes priority, then promotion, then relegation.
+                let rowBg: string = 'transparent'
+                let leftBorder: string | null = null
+                if (isOurs) {
+                  rowBg = 'rgba(13,59,39,.10)'
+                  leftBorder = C_GREEN
+                } else if (isPromotion) {
+                  rowBg = 'rgba(13,59,39,.05)'
+                  leftBorder = C_GREEN_LT
+                } else if (isRelegation) {
+                  rowBg = 'rgba(193,32,39,.06)'
+                  leftBorder = C_RED
+                }
+
+                const posColor = isPromotion ? C_GREEN : isRelegation ? C_RED : '#888'
+
                 return (
                   <div
                     key={`${r.team_name ?? ''}-${i}`}
@@ -851,24 +871,30 @@ export default async function CandidateCHome() {
                       display: 'grid',
                       gridTemplateColumns: '20px 1fr 28px 28px 46px',
                       gap: 6,
-                      padding: '8px 0',
+                      padding: '7px 0 7px 8px',
                       alignItems: 'center',
                       borderBottom: `1px dashed ${C_RULE}`,
-                      background: isOurs ? 'rgba(193,32,39,.06)' : 'transparent',
-                      marginLeft: isOurs ? -8 : 0,
-                      marginRight: isOurs ? -8 : 0,
-                      paddingLeft: isOurs ? 8 : 0,
-                      paddingRight: isOurs ? 8 : 0,
+                      background: rowBg,
+                      marginLeft: leftBorder ? -8 : 0,
+                      marginRight: leftBorder ? -8 : 0,
+                      paddingLeft: leftBorder ? 8 : 0,
+                      paddingRight: leftBorder ? 8 : 0,
+                      borderLeft: leftBorder ? `3px solid ${leftBorder}` : '3px solid transparent',
                     }}
                   >
                     <div
                       style={{
                         fontFamily: mono,
                         fontSize: 11,
-                        color: isOurs ? C_RED : '#888',
-                        fontWeight: isOurs ? 700 : 400,
+                        color: posColor,
+                        fontWeight: isOurs || isPromotion || isRelegation ? 700 : 400,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 2,
                       }}
                     >
+                      {isPromotion && <span aria-hidden="true">▲</span>}
+                      {isRelegation && <span aria-hidden="true">▼</span>}
                       {String(pos).padStart(2, '0')}
                     </div>
                     <div
