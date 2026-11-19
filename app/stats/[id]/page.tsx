@@ -16,7 +16,15 @@ import {
   sansTight,
 } from '@/components/c/primitives'
 
-export const dynamic = 'force-dynamic'
+// Cached (ISR) so crawlers and repeat visits don't each run a function and
+// query Supabase. Refreshed hourly, and immediately after each Play-Cricket sync
+// (revalidatePath in app/api/sync/route.ts).
+export const revalidate = 3600
+
+// Render each page on its first visit, then serve it from cache.
+export async function generateStaticParams() {
+  return []
+}
 
 function fmtDate(d: string) {
   const dt = new Date(d + 'T00:00:00')

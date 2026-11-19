@@ -1,7 +1,16 @@
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { ImageResponse } from 'next/og'
 import { supabase } from '@/lib/supabase'
 
 export const runtime = 'nodejs'
+// Cached like the fixture page itself; refreshed hourly and after each sync.
+export const revalidate = 3600
+
+// Render each image on its first request, then serve it from cache.
+export async function generateStaticParams() {
+  return []
+}
 export const alt = 'St Lawrence CC fixture'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
@@ -19,17 +28,14 @@ function fmtDate(d: string): string {
   return `${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()}`
 }
 
-/** Fetch a woff2 font from Google Fonts CSS2 API and return the binary. */
-async function loadGoogleFont(family: string, weight: number, italic: boolean): Promise<ArrayBuffer> {
-  const style = italic ? 'ital,wght@1,' : 'wght@'
-  const url = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:${style}${weight}&display=swap`
-  const css = await fetch(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' },
-  }).then(r => r.text())
-  // Extract first woff2 src URL
-  const match = css.match(/src: url\(([^)]+\.woff2)\)/)
-  if (!match) throw new Error(`Could not find woff2 URL for ${family} ${weight} ${italic ? 'italic' : 'normal'}`)
-  return fetch(match[1]).then(r => r.arrayBuffer())
+/**
+ * Load a bundled TTF from assets/fonts. Fonts ship with the repo (OFL-licensed,
+ * from Google Fonts) rather than being fetched per request: the live fetch broke
+ * when Google started returning .ttf instead of .woff2, and cost a network
+ * round-trip on every image.
+ */
+async function loadFont(file: string): Promise<Buffer> {
+  return readFile(join(process.cwd(), 'assets', 'fonts', file))
 }
 
 export default async function OpengraphImage({
@@ -83,9 +89,9 @@ export default async function OpengraphImage({
 
   // Load Fraunces (italic 300 + italic 700) and JetBrains Mono (normal 400)
   const [frauncesLightData, frauncesBoldData, monoData] = await Promise.all([
-    loadGoogleFont('Fraunces', 300, true),
-    loadGoogleFont('Fraunces', 700, true),
-    loadGoogleFont('JetBrains Mono', 400, false),
+    loadFont('Fraunces-LightItalic.ttf'),
+    loadFont('Fraunces-BoldItalic.ttf'),
+    loadFont('JetBrainsMono-Regular.ttf'),
   ])
 
   // Build meta strip

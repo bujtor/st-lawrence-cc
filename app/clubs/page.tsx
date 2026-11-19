@@ -19,7 +19,8 @@ import {
   sansTight,
 } from '@/components/c/primitives'
 
-export const dynamic = 'force-dynamic'
+// Cached (ISR); refreshed hourly and after each Play-Cricket sync.
+export const revalidate = 3600
 
 type ClubRecord = {
   opponent: string

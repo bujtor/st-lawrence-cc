@@ -27,7 +27,9 @@ import {
   mono,
 } from '@/lib/c-theme/tokens'
 
-export const dynamic = 'force-dynamic'
+// Cached (ISR) for 60s: short enough for the live-match card, long enough that
+// bursts of traffic don't each run a function. Also refreshed after each sync.
+export const revalidate = 60
 
 // Dalton Joinery is the main sponsor — leftmost in the strip and rendered
 // at a larger size than the supporting sponsors.

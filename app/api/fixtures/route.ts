@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { isCaptainAuthed } from '@/lib/captain-auth'
 
@@ -58,6 +59,9 @@ export async function PATCH(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  // Meet/start times appear on the cached (ISR) public pages; purge them.
+  revalidatePath('/', 'layout')
 
   return NextResponse.json(data)
 }

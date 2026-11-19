@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { timingSafeEqual } from 'node:crypto'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { normaliseResult } from '@/lib/result-normalisation'
@@ -755,6 +756,9 @@ export async function POST(req: NextRequest) {
       }).eq('id', runId)
     }
 
+    // Public pages are cached (ISR); purge them so new data shows straight away.
+    revalidatePath('/', 'layout')
+
     return NextResponse.json(out)
   } catch (e) {
     errorMsg = e instanceof Error ? e.message : String(e)
@@ -768,6 +772,9 @@ export async function POST(req: NextRequest) {
         result_summary: out,
       }).eq('id', runId)
     }
+
+    // A failed run may still have written some rows; purge the cache anyway.
+    revalidatePath('/', 'layout')
 
     return NextResponse.json({ ...out, error: errorMsg }, { status: 500 })
   }
