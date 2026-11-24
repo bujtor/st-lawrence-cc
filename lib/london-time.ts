@@ -49,3 +49,9 @@ export function londonWallTimeToUtc(date: string, time: string): number | null {
   const offsetMs = londonReprAsUtc - naiveUtc
   return naiveUtc - offsetMs
 }
+
+/** Shift a YYYY-MM-DD calendar date by n days (negative = earlier). Timezone-free. */
+export function shiftDate(date: string, n: number): string {
+  const [y, m, d] = date.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
+}

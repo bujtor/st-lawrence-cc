@@ -1,6 +1,7 @@
 {
   "crons": [
     { "path": "/api/cron/sync", "schedule": "0 22 * * 6" },
-    { "path": "/api/cron/sync", "schedule": "0 9 * * 0" }
+    { "path": "/api/cron/sync", "schedule": "0 9 * * 0" },
+    { "path": "/api/cron/date-purge", "schedule": "10 0 * * *" }
   ]
 }

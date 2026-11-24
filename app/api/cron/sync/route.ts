@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { timingSafeEqual } from 'node:crypto'
+import { isCronAuthorized } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { fetchResults } from '@/lib/play-cricket'
 // sync_runs logging happens via the POST /api/sync route below
@@ -7,32 +7,8 @@ import { fetchResults } from '@/lib/play-cricket'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-function constantTimeMatch(a: string, b: string): boolean {
-  const bufA = Buffer.from(a)
-  const bufB = Buffer.from(b)
-  if (bufA.length !== bufB.length) return false
-  return timingSafeEqual(bufA, bufB)
-}
-
-// Vercel auto-sets `Authorization: Bearer $CRON_SECRET` on cron invocations when
-// CRON_SECRET is configured. The presence of `x-vercel-cron` alone is NOT a secret —
-// any client can set that header, so we require the bearer instead.
-function authorized(req: NextRequest): boolean {
-  const cronSecret = process.env.CRON_SECRET
-  const authHeader = req.headers.get('authorization')
-  if (cronSecret && authHeader && authHeader.startsWith('Bearer ')) {
-    const provided = authHeader.slice(7)
-    if (constantTimeMatch(cronSecret, provided)) return true
-  }
-  // Allow manual trigger with sync token
-  const syncSecret = process.env.SYNC_API_SECRET
-  const syncProvided = req.headers.get('x-sync-token')
-  if (syncSecret && syncProvided && constantTimeMatch(syncSecret, syncProvided)) return true
-  return false
-}
-
 export async function GET(req: NextRequest) {
-  if (!authorized(req)) {
+  if (!isCronAuthorized(req)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 

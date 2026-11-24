@@ -28,6 +28,9 @@ import {
 // cache without running a function. The cache is purged only when the data
 // changes: after each Play-Cricket sync and after captain edits
 // (revalidatePath in app/api/sync, app/api/fixtures, app/api/players).
+// These pages also show an upcoming/past state based on today's date, so
+// recently played fixtures and their clubs are purged nightly as well
+// (app/api/cron/date-purge, scheduled in vercel.json).
 // An hourly expiry made nearly every crawler visit trigger a background rebuild.
 export const revalidate = false
 
