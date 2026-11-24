@@ -4,8 +4,9 @@ import { ImageResponse } from 'next/og'
 import { supabase } from '@/lib/supabase'
 
 export const runtime = 'nodejs'
-// Cached like the fixture page itself; refreshed hourly and after each sync.
-export const revalidate = 3600
+// Cached like the fixture page itself: no time-based expiry, purged after
+// each sync and captain edit.
+export const revalidate = false
 
 // Render each image on its first request, then serve it from cache.
 export async function generateStaticParams() {
@@ -216,6 +217,8 @@ export default async function OpengraphImage({
               {resultText && resultPillColor && (
                 <div
                   style={{
+                    // Satori (ImageResponse) requires explicit flex on any div with content.
+                    display: 'flex',
                     background: resultPillColor,
                     borderRadius: 4,
                     padding: '4px 14px',

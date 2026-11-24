@@ -19,8 +19,9 @@ import {
   sansTight,
 } from '@/components/c/primitives'
 
-// Cached (ISR); refreshed hourly and after each Play-Cricket sync.
-export const revalidate = 3600
+// Cached (ISR) with no time-based expiry; purged after each Play-Cricket sync
+// and after captain edits (revalidatePath).
+export const revalidate = false
 
 type ClubRecord = {
   opponent: string

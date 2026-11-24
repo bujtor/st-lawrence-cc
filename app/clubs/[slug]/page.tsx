@@ -24,10 +24,12 @@ import {
   sansTight,
 } from '@/components/c/primitives'
 
-// Cached (ISR) so crawlers and repeat visits don't each run a function and
-// query Supabase. Refreshed hourly, and immediately after each Play-Cricket sync
-// (revalidatePath in app/api/sync/route.ts).
-export const revalidate = 3600
+// Cached (ISR) with no time-based expiry, so crawler visits are served from
+// cache without running a function. The cache is purged only when the data
+// changes: after each Play-Cricket sync and after captain edits
+// (revalidatePath in app/api/sync, app/api/fixtures, app/api/players).
+// An hourly expiry made nearly every crawler visit trigger a background rebuild.
+export const revalidate = false
 
 // Render each page on its first visit, then serve it from cache.
 export async function generateStaticParams() {
