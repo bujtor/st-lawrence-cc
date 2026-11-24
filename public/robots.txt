@@ -20,3 +20,5 @@ Disallow: /
 
 User-agent: ClaudeBot
 Disallow: /
+
+Sitemap: https://stlawrencecc.co.uk/sitemap.xml
